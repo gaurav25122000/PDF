@@ -355,7 +355,7 @@ const EditPDF = () => {
                     <div className="relative shadow-xl border bg-white">
                         {/* Hidden canvas for PDFjs render */}
                         <canvas ref={canvasRef} style={{ position: 'absolute', visibility: 'hidden', pointerEvents: 'none' }} />
-                        <canvas id="fabric-canvas" className="bg-white" />
+                        <canvas id="fabric-canvas" />
                         {loading && (
                             <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10">
                                 <Loader2 className="animate-spin w-10 h-10 text-purple-600" />
