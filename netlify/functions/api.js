@@ -68,7 +68,162 @@ const parsePageRanges = (rangeString, maxPages) => {
     return Array.from(pages).sort((a, b) => a - b);
 };
 
-// --- ROUTES ---
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import { query } from './db.js';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_jwt_key_change_me';
+
+// MIDDLEWARE: Parse User from Token (Optional)
+// Populates req.user if valid token found
+const optionalAuth = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    
+    if (token) {
+        jwt.verify(token, JWT_SECRET, (err, user) => {
+            if (!err) req.user = user;
+            next();
+        });
+    } else {
+        next();
+    }
+};
+
+// MIDDLEWARE: Rate Limiter (3 per 24 hours)
+const checkRateLimit = async (req, res, next) => {
+    try {
+        const userId = req.user ? req.user.id : null;
+        // Get IP: Netlify sends 'client-ip' or 'x-forwarded-for'
+        const ip = req.headers['client-ip'] || req.headers['x-forwarded-for'] || req.socket.remoteAddress; 
+        
+        // 1. Get usage count for last 24 hours
+        // If UserID exists, check by UserID. If not, check by IP.
+        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        
+        // Query logic:
+        // If logged in: SELECT count FROM usage_logs WHERE user_id = $1 AND created_at > $2
+        // If anon: SELECT count FROM usage_logs WHERE ip_address = $1 AND created_at > $2 (and user_id IS NULL preferably? Or just IP?)
+        // Let's track strictly: logic is "ID takes precedence".
+        
+        let countResult;
+        if (userId) {
+            countResult = await query(
+                'SELECT COUNT(*) FROM usage_logs WHERE user_id = $1 AND created_at > $2',
+                [userId, oneDayAgo]
+            );
+        } else {
+            countResult = await query(
+                'SELECT COUNT(*) FROM usage_logs WHERE ip_address = $1 AND created_at > $2',
+                [ip, oneDayAgo]
+            );
+        }
+        
+        const count = parseInt(countResult.rows[0].count);
+        if (count >= 3) {
+            return res.status(429).json({ 
+                error: "Daily limit reached (3 uses per 24 hours). Please try again tomorrow." 
+            });
+        }
+        
+        // Pass info to next handler to log success later
+        req.usageInfo = { userId, ip };
+        next();
+
+    } catch (e) {
+        console.error("Rate Limit Error:", e);
+        // Fail open or closed? Let's fail open but log error to allow usage if DB down? 
+        // No, let's fail safe.
+        next(); 
+    }
+};
+
+// HELPER: Log Usage (Call this after successful tool processing)
+const logUsage = async (req) => {
+    if (!req.usageInfo) return;
+    try {
+        await query(
+            'INSERT INTO usage_logs (user_id, ip_address) VALUES ($1, $2)',
+            [req.usageInfo.userId, req.usageInfo.ip]
+        );
+    } catch (e) {
+        console.error("Failed to log usage:", e);
+    }
+};
+
+
+// --- AUTH ROUTES ---
+
+router.post('/auth/signup', express.json(), async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        if (!email || !password) return res.status(400).json({ error: "Email and password required" });
+        
+        const hashedPassword = await bcrypt.hash(password, 10);
+        
+        const result = await query(
+            'INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING id, email',
+            [email, hashedPassword]
+        );
+        
+        const user = result.rows[0];
+        const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
+        
+        res.json({ token, user: { id: user.id, email: user.email } });
+    } catch (e) {
+        if (e.code === '23505') { // Unique violation
+            return res.status(400).json({ error: "Email already registered" });
+        }
+        console.error(e);
+        res.status(500).json({ error: "Signup failed" });
+    }
+});
+
+router.post('/auth/login', express.json(), async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        const result = await query('SELECT * FROM users WHERE email = $1', [email]);
+        const user = result.rows[0];
+        
+        if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+            return res.status(401).json({ error: "Invalid credentials" });
+        }
+        
+        const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
+        res.json({ token, user: { id: user.id, email: user.email } });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: "Login failed" });
+    }
+});
+
+router.get('/auth/me', optionalAuth, async (req, res) => {
+    if (!req.user) return res.status(401).json({ error: "Not logged in" });
+    
+    // Get usage count
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const countRes = await query(
+        'SELECT COUNT(*) FROM usage_logs WHERE user_id = $1 AND created_at > $2',
+        [req.user.id, oneDayAgo]
+    );
+    
+    res.json({ 
+        user: req.user,
+        usageToday: parseInt(countRes.rows[0].count),
+        limit: 3
+    });
+});
+
+
+// --- TOOL ROUTES (Wrapped with Auth & Rate Limit) ---
+
+// Apply Middleware globally to /process/* routes?
+// Yes, let's wrap logic.
+// Problem: middleware `use` doesn't take regex nicely in router sometimes.
+// Easier to apply to each route or use router.use('/process/*', ...)
+
+router.use('/process', optionalAuth); 
+router.use('/process', checkRateLimit);
 
 router.get('/', (req, res) => {
   res.json({ message: "MarvelPDF Node.js Backend Running" });
@@ -94,6 +249,8 @@ router.post('/process/merge', upload.array('files'), async (req, res) => {
         }
 
         const pdfBytes = await mergedPdf.save();
+        
+        await logUsage(req); // LOG USAGE ON SUCCESS
 
         res.set({
             'Content-Type': 'application/pdf',
@@ -130,6 +287,8 @@ router.post('/process/split', upload.single('file'), async (req, res) => {
         // Create Zip
         const archive = archiver('zip');
         
+        await logUsage(req); // LOG USAGE
+
         res.set({
             'Content-Type': 'application/zip',
             'Content-Disposition': 'attachment; filename=split.zip'
@@ -137,9 +296,6 @@ router.post('/process/split', upload.single('file'), async (req, res) => {
 
         archive.pipe(res);
         archive.append(Buffer.from(subPdfBytes), { name: 'extracted.pdf' });
-         // Ensure finalize is awaited properly or handled. 
-         // archiver pipe to res handles end? 
-         // usually need to await finalize.
         await archive.finalize();
 
     } catch (error) {
@@ -166,6 +322,9 @@ router.post('/process/protect', upload.single('file'), async (req, res) => {
         });
 
         const pdfBytes = await pdfDoc.save();
+        
+        await logUsage(req); // LOG USAGE
+        
         res.set({
             'Content-Type': 'application/pdf',
             'Content-Disposition': 'attachment; filename=protected.pdf',
@@ -187,6 +346,9 @@ router.post('/process/unlock', upload.single('file'), async (req, res) => {
         
         // Save without changes = removes encryption
         const pdfBytes = await pdfDoc.save();
+        
+        await logUsage(req);
+        
         res.set({
             'Content-Type': 'application/pdf',
             'Content-Disposition': 'attachment; filename=unlocked.pdf',
@@ -198,7 +360,7 @@ router.post('/process/unlock', upload.single('file'), async (req, res) => {
     }
 });
 
-// COMPRESS PDF (Simple "Repack" strategy for Node.js)
+// COMPRESS PDF
 router.post('/process/compress', upload.single('file'), async (req, res) => {
     try {
         if (!req.file) return res.status(400).send("File required.");
@@ -209,6 +371,8 @@ router.post('/process/compress', upload.single('file'), async (req, res) => {
         copiedPages.forEach(p => compressedPdf.addPage(p));
 
         const pdfBytes = await compressedPdf.save({ useObjectStreams: false }); 
+
+        await logUsage(req);
 
         res.set({
             'Content-Type': 'application/pdf',
@@ -229,7 +393,6 @@ router.post('/process/watermark', upload.single('file'), async (req, res) => {
         
         const pdfDoc = await PDFDocument.load(req.file.buffer);
         const pages = pdfDoc.getPages();
-        // Assume font exists or handled by catch
         const font = await pdfDoc.embedFont("Helvetica-Bold");
 
         pages.forEach(page => {
@@ -248,6 +411,7 @@ router.post('/process/watermark', upload.single('file'), async (req, res) => {
         });
 
         const pdfBytes = await pdfDoc.save();
+        await logUsage(req);
         res.set({
             'Content-Type': 'application/pdf',
             'Content-Disposition': 'attachment; filename=watermarked.pdf',
@@ -288,6 +452,7 @@ router.post('/process/page-numbers', upload.single('file'), async (req, res) => 
         });
 
         const pdfBytes = await pdfDoc.save();
+        await logUsage(req);
         res.set({
             'Content-Type': 'application/pdf',
             'Content-Disposition': 'attachment; filename=numbered.pdf',
@@ -324,6 +489,7 @@ router.post('/process/jpg-to-pdf', upload.array('files'), async (req, res) => {
         }
 
         const pdfBytes = await pdfDoc.save();
+        await logUsage(req);
         res.set({
             'Content-Type': 'application/pdf',
             'Content-Disposition': 'attachment; filename=converted.pdf',
@@ -378,6 +544,7 @@ router.post('/process/edit', upload.single('file'), async (req, res) => {
         }
 
         const pdfBytes = await pdfDoc.save();
+        await logUsage(req);
         res.set({
             'Content-Type': 'application/pdf',
             'Content-Disposition': 'attachment; filename=edited.pdf',
@@ -423,6 +590,7 @@ router.post('/process/word-to-pdf', upload.single('file'), async (req, res) => {
          });
 
          const pdfBytes = await pdfDoc.save();
+         await logUsage(req);
          res.set({
             'Content-Type': 'application/pdf',
             'Content-Disposition': 'attachment; filename=converted.pdf',
@@ -456,6 +624,8 @@ router.post('/process/pdf-to-word', upload.single('file'), async (req, res) => {
         });
 
         const buffer = await Packer.toBuffer(doc);
+        
+        await logUsage(req);
         
         res.set({
             'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -497,6 +667,7 @@ router.post('/process/excel-to-pdf', upload.single('file'), async (req, res) => 
         });
 
         const pdfBytes = await pdfDoc.save();
+        await logUsage(req);
         res.set({
             'Content-Type': 'application/pdf',
             'Content-Disposition': 'attachment; filename=converted.pdf',
@@ -527,7 +698,9 @@ router.post('/process/pdf-to-excel', upload.single('file'), async (req, res) => 
         XLSX.utils.book_append_sheet(wb, ws, "PDF Data");
         
         const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
-
+         
+        await logUsage(req);
+        
          res.set({
             'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             'Content-Disposition': 'attachment; filename=converted.xlsx',
@@ -561,7 +734,9 @@ router.post('/process/pdf-to-pptx', upload.single('file'), async (req, res) => {
         }
 
         const buffer = await pptx.write({ outputType: 'nodebuffer' });
-
+        
+        await logUsage(req);
+        
         res.set({
             'Content-Type': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
             'Content-Disposition': 'attachment; filename=converted.pptx',
