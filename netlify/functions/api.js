@@ -33,7 +33,6 @@ const upload = multer({
     limits: { fileSize: 50 * 1024 * 1024 } // 50MB limit per file
 });
 
-const router = express.Router();
 
 /**
  * UTILITY: Parse page ranges (e.g., "1-3, 5, 8-10")
