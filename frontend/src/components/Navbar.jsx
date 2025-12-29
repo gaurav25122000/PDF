@@ -1,8 +1,11 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { FileText } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { LogOut, User } from 'lucide-react';
 
 const Navbar = () => {
+  const { user, logout } = useAuth();
+
   return (
     <nav className="bg-marvel-black text-white shadow-lg border-b border-gray-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -26,10 +29,30 @@ const Navbar = () => {
               </Link>
             </div>
           </div>
-          <div className="flex items-center">
-             <button className="bg-gray-900 text-white px-4 py-2 rounded-lg font-medium hover:bg-gray-800 transition-colors">
-                Log In
-             </button>
+          <div className="flex items-center space-x-4">
+             {user ? (
+                 <div className="flex items-center gap-4">
+                     <div className="text-right hidden sm:block">
+                        <div className="text-sm font-bold text-gray-200">{user.email}</div>
+                        <div className="text-xs text-marvel-red uppercase font-bold tracking-wide">
+                            {user.usageToday !== undefined ? `${3 - user.usageToday} uses left` : 'Member'}
+                        </div>
+                     </div>
+                     <button 
+                        onClick={logout}
+                        className="bg-gray-800 p-2 rounded-lg hover:bg-gray-700 transition-colors text-gray-400 hover:text-white"
+                        title="Logout"
+                     >
+                        <LogOut size={20} />
+                     </button>
+                 </div>
+             ) : (
+                <Link to="/login">
+                    <button className="bg-gray-900 text-white px-4 py-2 rounded-lg font-medium hover:bg-gray-800 transition-colors border border-gray-700">
+                        Log In
+                    </button>
+                </Link>
+             )}
           </div>
         </div>
       </div>
