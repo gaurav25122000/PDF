@@ -4,6 +4,7 @@ import Footer from './components/Footer';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import AuthModalWrapper from './components/AuthModalWrapper';
 import { AuthProvider } from './context/AuthContext';
 
 import MergePDF from './pages/MergePDF';
@@ -58,8 +59,8 @@ function App() {
                     <Route path="/" element={<div />} /> {/* Empty for root, so Home shows underneath */}
                     
                     {/* Auth Routes */}
-                    <Route path="/login" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center bg-slate-900/95 absolute inset-0 z-50"><Login /></div>} />
-                    <Route path="/signup" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center bg-slate-900/95 absolute inset-0 z-50"><Signup /></div>} />
+                    <Route path="/login" element={<AuthModalWrapper><Login /></AuthModalWrapper>} />
+                    <Route path="/signup" element={<AuthModalWrapper><Signup /></AuthModalWrapper>} />
 
                     {/* Tool Routes - Each wraps content in standard ToolModal */}
                     <Route path="/merge-pdf" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><MergePDF /></div>} />
