@@ -1,7 +1,7 @@
 import { Pool } from 'pg';
 
-const pool = process.env.NEON_DATABASE_URL ? new Pool({
-  connectionString: process.env.NEON_DATABASE_URL,
+const pool = process.env.NETLIFY_DATABASE_URL ? new Pool({
+  connectionString: process.env.NETLIFY_DATABASE_URL,
   ssl: {
     rejectUnauthorized: false,
   },
