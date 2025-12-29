@@ -5,12 +5,11 @@ import SEO from '../components/SEO';
 import FileUploader from '../components/FileUploader';
 import { File, Loader2, Edit3, Type, Image as ImageIcon, Download, Square } from 'lucide-react';
 import axios from 'axios';
-import * as pdfjsLib from 'pdfjs-dist';
-import * as fabric from 'fabric';
+import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
+import { Canvas, FabricImage, IText, Image as LegacyImage } from 'fabric';
 
 // Configure PDF.js worker
-// Using CDN for worker to avoid build complexity with vite for now
-pdfjsLib.GlobalWorkerOptions.workerSrc = `/pdf.worker.min.mjs`;
+GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
 const EditPDF = () => {
   const [file, setFile] = useState(null);
@@ -37,11 +36,13 @@ const EditPDF = () => {
   const loadPDF = async (pdfFile) => {
       setLoading(true);
       try {
+          console.log("Loading PDF...");
           const arrayBuffer = await pdfFile.arrayBuffer();
-          const loadedPdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+          const loadedPdf = await getDocument(arrayBuffer).promise;
           setPdfDoc(loadedPdf);
           setNumPages(loadedPdf.numPages);
-          renderPage(loadedPdf, 1);
+          console.log("PDF Loaded, pages:", loadedPdf.numPages);
+          await renderPage(loadedPdf, 1);
       } catch (err) {
           console.error("Error loading PDF:", err);
           setError("Failed to load PDF.");
@@ -54,6 +55,7 @@ const EditPDF = () => {
     if (!canvasRef.current) return;
     
     try {
+        console.log("Rendering page", pageNum);
         const page = await pdf.getPage(pageNum);
         const viewport = page.getViewport({ scale: 1.5 });
         const canvas = canvasRef.current;
@@ -63,90 +65,63 @@ const EditPDF = () => {
         canvas.width = viewport.width;
 
         await page.render({ canvasContext: context, viewport: viewport }).promise;
+        console.log("PDF Page rendered to hidden canvas");
 
-        // Ensure we get data URL correctly
-        const bgImage = canvas.toDataURL("image/png");
-        
         if (!fabricCanvasRef.current) {
-            const fCanvas = new fabric.Canvas('fabric-canvas', {
+            const fCanvas = new Canvas('fabric-canvas', {
                 height: viewport.height,
                 width: viewport.width,
             });
             fabricCanvasRef.current = fCanvas;
-            
-            try {
-                // Add as an image object instead of background for better compatibility
-                const img = await fabric.FabricImage.fromURL(bgImage);
-                img.set({
-                    left: 0,
-                    top: 0,
-                    selectable: false,
-                    evented: false,
-                    scaleX: fCanvas.width / img.width,
-                    scaleY: fCanvas.height / img.height
-                });
-                fCanvas.add(img);
-                fCanvas.moveObjectTo(img, 0);
-                fCanvas.requestRenderAll();
-            } catch (err) {
-                 try {
-                     const img = await fabric.Image.fromURL(bgImage);
-                     img.set({
-                        left: 0,
-                        top: 0,
-                        selectable: false,
-                        evented: false,
-                        scaleX: fCanvas.width / img.width,
-                        scaleY: fCanvas.height / img.height
-                    });
-                     fCanvas.add(img);
-                     fCanvas.moveObjectTo(img, 0);
-                     fCanvas.requestRenderAll();
-                 } catch (e) {
-                     console.error("Fabric Image Error:", e);
-                 }
-            }
+            initFabricLayer(fCanvas, canvas);
         } else {
              const fCanvas = fabricCanvasRef.current;
              fCanvas.clear();
              fCanvas.setDimensions({ width: viewport.width, height: viewport.height });
-             
-             try {
-                const img = await fabric.FabricImage.fromURL(bgImage);
-                img.set({
-                    left: 0,
-                    top: 0,
-                    selectable: false,
-                    evented: false,
-                    scaleX: fCanvas.width / img.width,
-                    scaleY: fCanvas.height / img.height
-                });
-                fCanvas.add(img);
-                fCanvas.moveObjectTo(img, 0);
-                fCanvas.requestRenderAll();
-             } catch (err) {
-                 try {
-                     const img = await fabric.Image.fromURL(bgImage);
-                     img.set({
-                        left: 0,
-                        top: 0,
-                        selectable: false,
-                        evented: false,
-                        scaleX: fCanvas.width / img.width,
-                        scaleY: fCanvas.height / img.height
-                    });
-                     fCanvas.add(img);
-                     fCanvas.moveObjectTo(img, 0);
-                     fCanvas.requestRenderAll();
-                 } catch (e) {
-                      console.error("Fabric Image Error loop:", e);
-                 }
-             }
+             initFabricLayer(fCanvas, canvas);
         }
     } catch (err) {
         console.error("Render Page Error:", err);
         setError("Failed to render page.");
     }
+  };
+
+  const initFabricLayer = async (fCanvas, sourceCanvas) => {
+      try {
+          // Create Fabric Image directly from the Helper Canvas Element
+          // This avoids DataURL encoding/decoding issues
+          const img = new FabricImage(sourceCanvas, {
+              left: 0,
+              top: 0,
+              selectable: false,
+              evented: false,
+          });
+          
+          // Scale if needed (though we matched dimensions)
+          img.scaleX = fCanvas.width / img.width;
+          img.scaleY = fCanvas.height / img.height;
+
+          fCanvas.add(img);
+          fCanvas.moveObjectTo(img, 0);
+          fCanvas.requestRenderAll();
+          console.log("Fabric layer initialized");
+      } catch (err) {
+          console.error("Fabric Init Error:", err);
+          // Fallback mechanism if direct element fails
+          try {
+               const dataUrl = sourceCanvas.toDataURL();
+               const img = await FabricImage.fromURL(dataUrl);
+               img.set({ left:0, top:0, selectable:false, evented:false });
+               img.scaleX = fCanvas.width / img.width;
+               img.scaleY = fCanvas.height / img.height;
+               fCanvas.add(img);
+               fCanvas.moveObjectTo(img, 0);
+               fCanvas.requestRenderAll();
+          } catch(e) {
+               console.error("Fallback failed:", e);
+               setError("Could not display PDF page.");
+          }
+      }
   };
 
   // Tool handling
@@ -167,7 +142,7 @@ const EditPDF = () => {
 
   const addText = () => {
     if (fabricCanvasRef.current) {
-        const text = new fabric.IText('Type here', {
+        const text = new IText('Type here', {
             left: 100,
             top: 100,
             fontFamily: 'Helvetica',
