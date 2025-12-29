@@ -73,23 +73,47 @@ const EditPDF = () => {
             });
             fabricCanvasRef.current = fCanvas;
             
-            // Set background
-            fabric.Image.fromURL(bgImage, (img) => {
-                fCanvas.setBackgroundImage(img, fCanvas.renderAll.bind(fCanvas), {
-                    scaleX: fCanvas.width / img.width,
-                    scaleY: fCanvas.height / img.height
-                });
-            });
+            // Set background (Fabric v6+)
+            try {
+                const img = await fabric.FabricImage.fromURL(bgImage);
+                fCanvas.backgroundImage = img;
+                fCanvas.backgroundImage.scaleX = fCanvas.width / img.width;
+                fCanvas.backgroundImage.scaleY = fCanvas.height / img.height;
+                fCanvas.requestRenderAll();
+            } catch (err) {
+                 // Fallback if FabricImage is not available (older versions or different export)
+                 try {
+                     const img = await fabric.Image.fromURL(bgImage);
+                     fCanvas.backgroundImage = img;
+                     fCanvas.backgroundImage.scaleX = fCanvas.width / img.width;
+                     fCanvas.backgroundImage.scaleY = fCanvas.height / img.height;
+                     fCanvas.requestRenderAll();
+                 } catch (e) {
+                     console.error("Fabric Image Error:", e);
+                 }
+            }
         } else {
              const fCanvas = fabricCanvasRef.current;
              fCanvas.clear();
              fCanvas.setDimensions({ width: viewport.width, height: viewport.height });
-             fabric.Image.fromURL(bgImage, (img) => {
-                fCanvas.setBackgroundImage(img, fCanvas.renderAll.bind(fCanvas), {
-                    scaleX: fCanvas.width / img.width,
-                    scaleY: fCanvas.height / img.height
-                });
-            });
+             
+             try {
+                const img = await fabric.FabricImage.fromURL(bgImage);
+                fCanvas.backgroundImage = img;
+                fCanvas.backgroundImage.scaleX = fCanvas.width / img.width;
+                fCanvas.backgroundImage.scaleY = fCanvas.height / img.height;
+                fCanvas.requestRenderAll();
+             } catch (err) {
+                 try {
+                     const img = await fabric.Image.fromURL(bgImage);
+                     fCanvas.backgroundImage = img;
+                     fCanvas.backgroundImage.scaleX = fCanvas.width / img.width;
+                     fCanvas.backgroundImage.scaleY = fCanvas.height / img.height;
+                     fCanvas.requestRenderAll();
+                 } catch (e) {
+                      console.error("Fabric Image Error loop:", e);
+                 }
+             }
         }
     } catch (err) {
         console.error("Render Page Error:", err);
