@@ -1,7 +1,20 @@
 import { Pool } from 'pg';
 
-const pool = process.env.NETLIFY_DATABASE_URL ? new Pool({
-  connectionString: process.env.NETLIFY_DATABASE_URL,
+const getDbUrl = () => {
+    // Check various common env var names
+    const url = process.env.NETLIFY_DATABASE_URL || process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
+    if (!url) {
+        console.log("DB: No database URL found in environment variables (NETLIFY_DATABASE_URL, NEON_DATABASE_URL or DATABASE_URL).");
+        return null;
+    }
+    console.log(`DB: Found database URL (length: ${url.length}). Connecting...`);
+    return url;
+};
+
+const dbUrl = getDbUrl();
+
+const pool = dbUrl ? new Pool({
+  connectionString: dbUrl,
   ssl: {
     rejectUnauthorized: false,
   },
@@ -9,11 +22,8 @@ const pool = process.env.NETLIFY_DATABASE_URL ? new Pool({
 
 export const query = (text, params) => {
     if (!pool) {
-        console.warn("Database query skipped: NEON_DATABASE_URL not set.");
-        // Throwing error will cause catch() in api.js to run, which is what we want (fail open if checkRateLimit fails)
-        // CheckRateLimit catches errors, so this is safe. 
-        // LogUsage catches errors, so this is safe.
-        throw new Error("NEON_DATABASE_URL is not set");
+        // Log once or softly to avoid spamming logs if intentional (fail open)
+        throw new Error("Database not configured");
     }
     return pool.query(text, params);
 };
