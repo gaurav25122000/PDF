@@ -501,17 +501,9 @@ router.post('/process/compress', express.json(), async (req, res) => {
                 gsPath = bundledGsPath;
                 console.log("[API] Using bundled Ghostscript:", gsPath);
 
-                // ENSURE EXECUTABLE PERMISSIONS
-                try {
-                    await fs.chmod(gsPath, 0o755);
-                    console.log("[API] Set executable permissions on binary.");
-                } catch (e) {
-                    console.warn("[API] Failed to set permissions:", e.message);
-                }
-
                 // TEST BINARY EXECUTION (Verify dynamic libs)
                 try {
-                     const { stdout, stderr } = await execAsync(`"${gsPath}" --version`);
+                     const { stdout, stderr } = await execAsync(`"${gsPath}" --version`, { env: { ...process.env, TEMP: '/tmp' } });
                      console.log("[API] GS Version Check:", stdout.trim());
                 } catch (verErr) {
                      console.error("[API] GS Version Check Failed (Missing libs?):", verErr.message);
@@ -524,13 +516,20 @@ router.post('/process/compress', express.json(), async (req, res) => {
             console.error("[API] Error determining GS path:", err);
         }
 
-        // Command: Compress PDF
+        // Command
         const command = `"${gsPath}" -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 -dPDFSETTINGS=/ebook -dNOPAUSE -dQUIET -dBATCH -sOutputFile="${outputPath}" "${inputPath}"`;
         
         console.log("[API] Executing Ghostscript command...");
+        const startTime = Date.now();
 
         try {
-            const { stdout, stderr } = await execAsync(command);
+            // Set TEMP for GS, increase buffer
+            const { stdout, stderr } = await execAsync(command, { 
+                env: { ...process.env, TEMP: '/tmp' },
+                maxBuffer: 10 * 1024 * 1024 
+            });
+            
+            console.log(`[API] GS Execution completed in ${Date.now() - startTime}ms`);
             console.log("[API] GS Output:", stdout);
             if (stderr) console.warn("[API] GS Stderr:", stderr);
         } catch (execError) {
