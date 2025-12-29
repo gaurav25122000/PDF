@@ -44,6 +44,7 @@ const UnlockPDF = () => {
         document.body.appendChild(link);
         link.click();
         link.parentNode.removeChild(link);
+        window.dispatchEvent(new Event('usage-updated'));
     } catch (err) {
         console.error("Unlock error:", err);
         setError("Failed to unlock PDF. Wrong password?");

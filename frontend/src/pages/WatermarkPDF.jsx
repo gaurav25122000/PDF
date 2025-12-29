@@ -44,6 +44,7 @@ const WatermarkPDF = () => {
         document.body.appendChild(link);
         link.click();
         link.parentNode.removeChild(link);
+        window.dispatchEvent(new Event('usage-updated'));
     } catch (err) {
         console.error("Watermark error:", err);
         setError("Failed to add watermark.");

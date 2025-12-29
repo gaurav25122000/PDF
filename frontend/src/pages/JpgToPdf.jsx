@@ -49,6 +49,7 @@ const JpgToPdf = () => {
         document.body.appendChild(link);
         link.click();
         link.parentNode.removeChild(link);
+        window.dispatchEvent(new Event('usage-updated'));
     } catch (err) {
         console.error("JPG to PDF error:", err);
         setError("Failed to convert images to PDF.");

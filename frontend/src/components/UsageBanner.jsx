@@ -20,10 +20,14 @@ const UsageBanner = () => {
 
     useEffect(() => {
         fetchStatus();
-        // Refresh periodically or listen for events? 
-        // Simple polling for now every 10s to keep it accurate-ish without socket overhead
+        window.addEventListener('usage-updated', fetchStatus); // Listen for custom event from tools
+        
+        // Refresh periodically 
         const interval = setInterval(fetchStatus, 30000); 
-        return () => clearInterval(interval);
+        return () => {
+            window.removeEventListener('usage-updated', fetchStatus);
+            clearInterval(interval);
+        };
     }, []);
 
     // Countdown Timer Logic

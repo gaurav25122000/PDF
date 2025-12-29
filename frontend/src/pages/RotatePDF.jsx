@@ -44,6 +44,7 @@ const RotatePDF = () => {
         document.body.appendChild(link);
         link.click();
         link.parentNode.removeChild(link);
+        window.dispatchEvent(new Event('usage-updated'));
     } catch (err) {
         console.error("Rotate error:", err);
         setError("Failed to rotate PDF.");

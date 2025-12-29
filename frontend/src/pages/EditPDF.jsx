@@ -199,6 +199,7 @@ const EditPDF = () => {
         document.body.appendChild(link);
         link.click();
         link.parentNode.removeChild(link);
+        window.dispatchEvent(new Event('usage-updated'));
     } catch (err) {
         console.error("Edit PDF Error:", err);
         setError("Failed to save edited PDF.");

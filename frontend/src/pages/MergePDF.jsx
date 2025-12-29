@@ -50,6 +50,7 @@ const MergePDF = () => {
         document.body.appendChild(link);
         link.click();
         link.parentNode.removeChild(link);
+        window.dispatchEvent(new Event('usage-updated')); // Trigger Banner Refresh
     } catch (err) {
         console.error("Merge error:", err);
         setError("Failed to merge PDFs. Please try again.");

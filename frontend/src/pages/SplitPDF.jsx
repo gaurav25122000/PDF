@@ -51,6 +51,7 @@ const SplitPDF = () => {
         document.body.appendChild(link);
         link.click();
         link.parentNode.removeChild(link);
+        window.dispatchEvent(new Event('usage-updated'));
     } catch (err) {
         console.error("Split error:", err);
         setError("Failed to split PDF. Check page range.");

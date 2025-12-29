@@ -44,6 +44,7 @@ const ProtectPDF = () => {
         document.body.appendChild(link);
         link.click();
         link.parentNode.removeChild(link);
+        window.dispatchEvent(new Event('usage-updated'));
     } catch (err) {
         console.error("Protect error:", err);
         setError("Failed to protect PDF.");

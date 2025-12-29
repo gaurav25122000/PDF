@@ -42,6 +42,7 @@ const PdfToPptx = () => {
         document.body.appendChild(link);
         link.click();
         link.parentNode.removeChild(link);
+        window.dispatchEvent(new Event('usage-updated'));
     } catch (err) {
         console.error("PDF to PPTX error:", err);
         setError("Failed to convert PDF to PowerPoint.");

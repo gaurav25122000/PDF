@@ -42,6 +42,7 @@ const WordToPdf = () => {
         document.body.appendChild(link);
         link.click();
         link.parentNode.removeChild(link);
+        window.dispatchEvent(new Event('usage-updated'));
     } catch (err) {
         console.error("Word to PDF error:", err);
         setError("Failed to convert Word to PDF.");

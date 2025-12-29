@@ -42,6 +42,7 @@ const PdfToJpg = () => {
         document.body.appendChild(link);
         link.click();
         link.parentNode.removeChild(link);
+        window.dispatchEvent(new Event('usage-updated'));
     } catch (err) {
         console.error("PDF to JPG error:", err);
         setError("Failed to convert PDF to JPG.");

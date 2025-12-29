@@ -42,6 +42,7 @@ const ExcelToPdf = () => {
         document.body.appendChild(link);
         link.click();
         link.parentNode.removeChild(link);
+        window.dispatchEvent(new Event('usage-updated'));
     } catch (err) {
         console.error("Excel to PDF error:", err);
         setError("Failed to convert Excel to PDF.");

@@ -164,6 +164,7 @@ const SignPDF = () => {
         document.body.appendChild(link);
         link.click();
         link.parentNode.removeChild(link);
+        window.dispatchEvent(new Event('usage-updated'));
     } catch (err) {
         console.error("Sign PDF Error:", err);
         setError("Failed to sign PDF.");
