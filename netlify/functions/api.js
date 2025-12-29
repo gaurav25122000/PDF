@@ -341,6 +341,14 @@ router.get('/debug-env', async (req, res) => {
         status['S3_TEST_UPLOAD_URL'] = `FAILED: ${e.message}`;
         console.error("Debug S3 Test Failed:", e);
     }
+
+    // Test UUID Generation
+    try {
+        const testUuid = uuidv4();
+        status['UUID_TEST'] = `SUCCESS: ${testUuid}`;
+    } catch (e) {
+        status['UUID_TEST'] = `FAILED: ${e.message}`;
+    }
     
     res.json(status);
 });
