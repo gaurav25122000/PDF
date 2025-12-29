@@ -3,15 +3,7 @@ import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { Readable } from 'stream';
 
-// Debugging Env Vars
-const requiredEnv = ['MY_AWS_REGION', 'MY_AWS_ACCESS_KEY_ID', 'MY_AWS_SECRET_ACCESS_KEY', 'MY_AWS_BUCKET_NAME'];
-const missingEnv = requiredEnv.filter(key => !process.env[key]);
 
-if (missingEnv.length > 0) {
-    console.error("CRITICAL: Missing S3 Environment Variables:", missingEnv.join(", "));
-} else {
-    console.log("S3 Config: All required variables present.");
-}
 
 const s3Client = new S3Client({
     region: process.env.MY_AWS_REGION,

@@ -314,44 +314,7 @@ router.get('/health', (req, res) => {
     res.json({ status: "ok", environment: "nodejs" });
 });
 
-// DEBUG: Env Var Checker (Remove later)
-router.get('/debug-env', async (req, res) => {
-    const vars = [
-        'MY_AWS_ACCESS_KEY_ID', 
-        'MY_AWS_SECRET_ACCESS_KEY', 
-        'MY_AWS_REGION', 
-        'MY_AWS_BUCKET_NAME',
-        'DATABASE_URL',
-        'NETLIFY_DATABASE_URL',
-        'NEON_DATABASE_URL',
-        'JWT_SECRET'
-    ];
-    
-    const status = {};
-    vars.forEach(v => {
-        status[v] = process.env[v] ? (process.env[v].length > 5 ? 'PRESENT (Len > 5)' : 'PRESENT (Short)') : 'MISSING';
-    });
 
-    // Test S3 URL Generation
-    try {
-        const testKey = `debug/test-${Date.now()}.txt`;
-        const url = await getUploadUrl(testKey, 'text/plain');
-        status['S3_TEST_UPLOAD_URL'] = 'SUCCESS: Generated URL';
-    } catch (e) {
-        status['S3_TEST_UPLOAD_URL'] = `FAILED: ${e.message}`;
-        console.error("Debug S3 Test Failed:", e);
-    }
-
-    // Test UUID Generation
-    try {
-        const testUuid = uuidv4();
-        status['UUID_TEST'] = `SUCCESS: ${testUuid}`;
-    } catch (e) {
-        status['UUID_TEST'] = `FAILED: ${e.message}`;
-    }
-    
-    res.json(status);
-});
 
 // MERGE PDF
 router.post('/process/merge', express.json(), async (req, res) => {
