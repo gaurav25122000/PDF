@@ -500,34 +500,42 @@ router.post('/process/compress', express.json(), async (req, res) => {
             if (await fileExists(bundledGsPath)) {
                 gsPath = bundledGsPath;
                 console.log("[API] Using bundled Ghostscript:", gsPath);
+
+                // ENSURE EXECUTABLE PERMISSIONS
+                try {
+                    await fs.chmod(gsPath, 0o755);
+                    console.log("[API] Set executable permissions on binary.");
+                } catch (e) {
+                    console.warn("[API] Failed to set permissions:", e.message);
+                }
+
+                // TEST BINARY EXECUTION (Verify dynamic libs)
+                try {
+                     const { stdout, stderr } = await execAsync(`"${gsPath}" --version`);
+                     console.log("[API] GS Version Check:", stdout.trim());
+                } catch (verErr) {
+                     console.error("[API] GS Version Check Failed (Missing libs?):", verErr.message);
+                }
+
             } else {
                  console.log("[API] Bundled GS not found at", bundledGsPath, "- falling back to system 'gs'");
-                 // Debug: List dir to see where we are
-                 // const files = await fs.readdir(currentDir);
-                 // console.log("[API] Current dir contents:", files);
             }
         } catch (err) {
             console.error("[API] Error determining GS path:", err);
         }
 
         // Command: Compress PDF
-        // -dPDFSETTINGS=/ebook (150 dpi) - good balance?
-        // -dPDFSETTINGS=/screen (72 dpi) - max compression?
-        // Let's use /ebook for now as a safe default.
         const command = `"${gsPath}" -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 -dPDFSETTINGS=/ebook -dNOPAUSE -dQUIET -dBATCH -sOutputFile="${outputPath}" "${inputPath}"`;
-
-        console.log("Executing Ghostscript:", command);
+        
+        console.log("[API] Executing Ghostscript command...");
 
         try {
-            await execAsync(command);
+            const { stdout, stderr } = await execAsync(command);
+            console.log("[API] GS Output:", stdout);
+            if (stderr) console.warn("[API] GS Stderr:", stderr);
         } catch (execError) {
-            console.error("Ghostscript execution failed:", execError);
-            // Verify if it failed because 'gs' is missing
-            if (execError.message.includes('not found') || execError.code === 127) {
-                // Fallback or specific error
-                return res.status(500).json({ error: "Compression service unavailable (gs missing)." });
-            }
-            throw execError;
+             console.error("[API] Ghostscript execution failed:", execError);
+             return res.status(500).json({ error: "Compression failed internally.", details: execError.message });
         }
 
         if (await fileExists(outputPath)) {
