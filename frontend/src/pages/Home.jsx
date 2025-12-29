@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 // Helmet is handled inside SEO component
 import SEO from '../components/SEO';
 import ToolCard from '../components/ToolCard';
+import UsageBanner from '../components/UsageBanner';
 import {
   Combine,
   Scissors,
@@ -181,6 +182,7 @@ const Home = () => {
         keywords="pdf tools, merge pdf, split pdf, compress pdf, pdf converter, free pdf editor"
         schema={jsonLd}
       />
+      <UsageBanner />
 
       <div className="bg-marvel-black text-white py-20 px-4">
         <div className="max-w-4xl mx-auto text-center">

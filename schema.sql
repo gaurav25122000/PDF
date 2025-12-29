@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS usage_logs (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id), -- Nullable for anonymous users
     ip_address TEXT,                      -- For anonymous tracking
+    tool_name VARCHAR(255),               -- Track which tool was used
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 

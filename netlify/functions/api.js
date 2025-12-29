@@ -8,6 +8,8 @@ import { Stream } from 'stream';
 
 const app = express();
 app.use(cors());
+app.use(express.json({ limit: '500mb' }));
+app.use(express.urlencoded({ limit: '500mb', extended: true }));
 const router = express.Router();
 
 // DEBUG: Catch-all to see what's happening if no route matches
@@ -37,7 +39,7 @@ app.use('/', router);
 // Configure multer for memory storage
 const upload = multer({ 
    storage: multer.memoryStorage(),
-   limits: { fileSize: 50 * 1024 * 1024 } // 50MB limit per file
+   limits: { fileSize: 500 * 1024 * 1024 } // 500MB limit per file
 });
 
 
@@ -94,22 +96,20 @@ const optionalAuth = (req, res, next) => {
 const checkRateLimit = async (req, res, next) => {
     try {
         const userId = req.user ? req.user.id : null;
-        // Get IP: Netlify sends 'client-ip' or 'x-forwarded-for'
         const ip = req.headers['client-ip'] || req.headers['x-forwarded-for'] || req.socket.remoteAddress; 
         
-        // 1. Get usage count for last 24 hours
-        // If UserID exists, check by UserID. If not, check by IP.
         const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
         
-        // Query logic:
-        // If logged in: SELECT count FROM usage_logs WHERE user_id = $1 AND created_at > $2
-        // If anon: SELECT count FROM usage_logs WHERE ip_address = $1 AND created_at > $2 (and user_id IS NULL preferably? Or just IP?)
-        // Let's track strictly: logic is "ID takes precedence".
-        
         let countResult;
+        let oldestRequestResult;
+
         if (userId) {
             countResult = await query(
                 'SELECT COUNT(*) FROM usage_logs WHERE user_id = $1 AND created_at > $2',
+                [userId, oneDayAgo]
+            );
+             oldestRequestResult = await query(
+                'SELECT created_at FROM usage_logs WHERE user_id = $1 AND created_at > $2 ORDER BY created_at ASC LIMIT 1',
                 [userId, oneDayAgo]
             );
         } else {
@@ -117,34 +117,46 @@ const checkRateLimit = async (req, res, next) => {
                 'SELECT COUNT(*) FROM usage_logs WHERE ip_address = $1 AND created_at > $2',
                 [ip, oneDayAgo]
             );
+             oldestRequestResult = await query(
+                'SELECT created_at FROM usage_logs WHERE ip_address = $1 AND created_at > $2 ORDER BY created_at ASC LIMIT 1',
+                [ip, oneDayAgo]
+            );
         }
         
         const count = parseInt(countResult.rows[0].count);
+        
+        // Calculate Reset Time
+        let resetTime = null;
+        if (oldestRequestResult.rows.length > 0) {
+            const oldestDate = new Date(oldestRequestResult.rows[0].created_at);
+            resetTime = new Date(oldestDate.getTime() + 24 * 60 * 60 * 1000); 
+        }
+
         if (count >= 3) {
             return res.status(429).json({ 
-                error: "Daily limit reached (3 uses per 24 hours). Please try again tomorrow." 
+                error: "Daily limit reached.",
+                usage: count,
+                limit: 3,
+                resetTime: resetTime
             });
         }
         
-        // Pass info to next handler to log success later
         req.usageInfo = { userId, ip };
         next();
 
     } catch (e) {
         console.error("Rate Limit Error:", e);
-        // Fail open or closed? Let's fail open but log error to allow usage if DB down? 
-        // No, let's fail safe.
         next(); 
     }
 };
 
-// HELPER: Log Usage (Call this after successful tool processing)
-const logUsage = async (req) => {
+// HELPER: Log Usage
+const logUsage = async (req, toolName) => {
     if (!req.usageInfo) return;
     try {
         await query(
-            'INSERT INTO usage_logs (user_id, ip_address) VALUES ($1, $2)',
-            [req.usageInfo.userId, req.usageInfo.ip]
+            'INSERT INTO usage_logs (user_id, ip_address, tool_name) VALUES ($1, $2, $3)',
+            [req.usageInfo.userId, req.usageInfo.ip, toolName || 'Unknown']
         );
     } catch (e) {
         console.error("Failed to log usage:", e);
@@ -154,7 +166,7 @@ const logUsage = async (req) => {
 
 // --- AUTH ROUTES ---
 
-router.post('/auth/signup', express.json(), async (req, res) => {
+router.post('/auth/signup', async (req, res) => {
     try {
         const { email, password, name } = req.body;
         if (!email || !password) return res.status(400).json({ error: "Email and password required" });
@@ -185,7 +197,7 @@ router.post('/auth/signup', express.json(), async (req, res) => {
     }
 });
 
-router.post('/auth/login', express.json(), async (req, res) => {
+router.post('/auth/login', async (req, res) => {
     try {
         const { email, password } = req.body;
         const result = await query('SELECT * FROM users WHERE email = $1', [email]);
@@ -216,12 +228,55 @@ router.get('/auth/me', optionalAuth, async (req, res) => {
         'SELECT COUNT(*) FROM usage_logs WHERE user_id = $1 AND created_at > $2',
         [req.user.id, oneDayAgo]
     );
+     const oldestRes = await query(
+        'SELECT created_at FROM usage_logs WHERE user_id = $1 AND created_at > $2 ORDER BY created_at ASC LIMIT 1',
+        [req.user.id, oneDayAgo]
+    );
+    
+    let resetTime = null;
+    if (oldestRes.rows.length > 0) {
+        resetTime = new Date(new Date(oldestRes.rows[0].created_at).getTime() + 24 * 60 * 60 * 1000);
+    }
     
     res.json({ 
         user: userData,
         usageToday: parseInt(countRes.rows[0].count),
-        limit: 3
+        limit: 3,
+        resetTime
     });
+});
+
+router.get('/usage-status', optionalAuth, async (req, res) => {
+    try {
+         const userId = req.user ? req.user.id : null;
+         const ip = req.headers['client-ip'] || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+         const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+         let countResult, oldestResult;
+
+         if (userId) {
+             countResult = await query('SELECT COUNT(*) FROM usage_logs WHERE user_id = $1 AND created_at > $2', [userId, oneDayAgo]);
+             oldestResult = await query('SELECT created_at FROM usage_logs WHERE user_id = $1 AND created_at > $2 ORDER BY created_at ASC LIMIT 1', [userId, oneDayAgo]);
+         } else {
+             countResult = await query('SELECT COUNT(*) FROM usage_logs WHERE ip_address = $1 AND created_at > $2', [ip, oneDayAgo]);
+             oldestResult = await query('SELECT created_at FROM usage_logs WHERE ip_address = $1 AND created_at > $2 ORDER BY created_at ASC LIMIT 1', [ip, oneDayAgo]);
+         }
+         
+         let resetTime = null;
+        if (oldestResult.rows.length > 0) {
+            resetTime = new Date(new Date(oldestResult.rows[0].created_at).getTime() + 24 * 60 * 60 * 1000);
+        }
+
+         res.json({
+             usage: parseInt(countResult.rows[0].count),
+             limit: 3,
+             resetTime
+         });
+
+    } catch (e) {
+        console.error("Usage Status Error:", e);
+        res.status(500).json({ error: "Failed to fetch status" });
+    }
 });
 
 
@@ -260,7 +315,7 @@ router.post('/process/merge', upload.array('files'), async (req, res) => {
 
         const pdfBytes = await mergedPdf.save();
         
-        await logUsage(req); // LOG USAGE ON SUCCESS
+        await logUsage(req, 'Merge PDF'); // LOG USAGE ON SUCCESS
 
         res.set({
             'Content-Type': 'application/pdf',
@@ -297,7 +352,7 @@ router.post('/process/split', upload.single('file'), async (req, res) => {
         // Create Zip
         const archive = archiver('zip');
         
-        await logUsage(req); // LOG USAGE
+        await logUsage(req, 'Split PDF'); // LOG USAGE
 
         res.set({
             'Content-Type': 'application/zip',
@@ -333,7 +388,7 @@ router.post('/process/protect', upload.single('file'), async (req, res) => {
 
         const pdfBytes = await pdfDoc.save();
         
-        await logUsage(req); // LOG USAGE
+        await logUsage(req, 'Protect PDF'); // LOG USAGE
         
         res.set({
             'Content-Type': 'application/pdf',
@@ -357,7 +412,7 @@ router.post('/process/unlock', upload.single('file'), async (req, res) => {
         // Save without changes = removes encryption
         const pdfBytes = await pdfDoc.save();
         
-        await logUsage(req);
+        await logUsage(req, 'Unlock PDF');
         
         res.set({
             'Content-Type': 'application/pdf',
@@ -382,7 +437,7 @@ router.post('/process/compress', upload.single('file'), async (req, res) => {
 
         const pdfBytes = await compressedPdf.save({ useObjectStreams: false }); 
 
-        await logUsage(req);
+        await logUsage(req, 'Compress PDF');
 
         res.set({
             'Content-Type': 'application/pdf',
@@ -421,7 +476,7 @@ router.post('/process/watermark', upload.single('file'), async (req, res) => {
         });
 
         const pdfBytes = await pdfDoc.save();
-        await logUsage(req);
+        await logUsage(req, 'Watermark PDF');
         res.set({
             'Content-Type': 'application/pdf',
             'Content-Disposition': 'attachment; filename=watermarked.pdf',
@@ -462,7 +517,7 @@ router.post('/process/page-numbers', upload.single('file'), async (req, res) => 
         });
 
         const pdfBytes = await pdfDoc.save();
-        await logUsage(req);
+        await logUsage(req, 'Page Numbers');
         res.set({
             'Content-Type': 'application/pdf',
             'Content-Disposition': 'attachment; filename=numbered.pdf',
@@ -499,7 +554,7 @@ router.post('/process/jpg-to-pdf', upload.array('files'), async (req, res) => {
         }
 
         const pdfBytes = await pdfDoc.save();
-        await logUsage(req);
+        await logUsage(req, 'Edit/Sign PDF');
         res.set({
             'Content-Type': 'application/pdf',
             'Content-Disposition': 'attachment; filename=converted.pdf',
@@ -600,7 +655,7 @@ router.post('/process/word-to-pdf', upload.single('file'), async (req, res) => {
          });
 
          const pdfBytes = await pdfDoc.save();
-         await logUsage(req);
+         await logUsage(req, 'Word to PDF');
          res.set({
             'Content-Type': 'application/pdf',
             'Content-Disposition': 'attachment; filename=converted.pdf',
@@ -635,7 +690,7 @@ router.post('/process/pdf-to-word', upload.single('file'), async (req, res) => {
 
         const buffer = await Packer.toBuffer(doc);
         
-        await logUsage(req);
+        await logUsage(req, 'PDF to Word');
         
         res.set({
             'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -677,7 +732,7 @@ router.post('/process/excel-to-pdf', upload.single('file'), async (req, res) => 
         });
 
         const pdfBytes = await pdfDoc.save();
-        await logUsage(req);
+        await logUsage(req, 'Excel to PDF');
         res.set({
             'Content-Type': 'application/pdf',
             'Content-Disposition': 'attachment; filename=converted.pdf',
@@ -709,7 +764,7 @@ router.post('/process/pdf-to-excel', upload.single('file'), async (req, res) => 
         
         const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
          
-        await logUsage(req);
+        await logUsage(req, 'PDF to Excel');
         
          res.set({
             'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -745,7 +800,7 @@ router.post('/process/pdf-to-pptx', upload.single('file'), async (req, res) => {
 
         const buffer = await pptx.write({ outputType: 'nodebuffer' });
         
-        await logUsage(req);
+        await logUsage(req, 'PDF to PPTX');
         
         res.set({
             'Content-Type': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
