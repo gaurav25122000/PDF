@@ -480,22 +480,34 @@ router.post('/process/compress', express.json(), async (req, res) => {
         };
 
         // Determine Ghostscript path
-        // 1. Check for bundled binary (Netlify/Linux) using __dirname
-        
         let gsPath = process.env.GS_PATH || 'gs';
         
-        // Try to find bundled binary
-        const { fileURLToPath } = await import('url');
-        const __filename = fileURLToPath(import.meta.url);
-        const __dirname = path.dirname(__filename);
-        
-        const bundledGsPath = path.join(__dirname, 'bin', 'gs');
-        
-        if (await fileExists(bundledGsPath)) {
-            gsPath = bundledGsPath;
-            console.log("Using bundled Ghostscript:", gsPath);
-        } else {
-             console.log("Using system Ghostscript:", gsPath);
+        try {
+            // Robust __dirname for both CJS (Netlify Node Runtime) and ESM (Local Dev)
+            // In CJS build, __dirname is present. In ESM, it's not.
+            let currentDir;
+            try {
+                currentDir = __dirname;
+            } catch (e) {
+                // ESM fallback
+                const { fileURLToPath } = await import('url');
+                currentDir = path.dirname(fileURLToPath(import.meta.url));
+            }
+
+            const bundledGsPath = path.resolve(currentDir, 'bin', 'gs');
+            
+            // Check if bundled exists
+            if (await fileExists(bundledGsPath)) {
+                gsPath = bundledGsPath;
+                console.log("[API] Using bundled Ghostscript:", gsPath);
+            } else {
+                 console.log("[API] Bundled GS not found at", bundledGsPath, "- falling back to system 'gs'");
+                 // Debug: List dir to see where we are
+                 // const files = await fs.readdir(currentDir);
+                 // console.log("[API] Current dir contents:", files);
+            }
+        } catch (err) {
+            console.error("[API] Error determining GS path:", err);
         }
 
         // Command: Compress PDF
