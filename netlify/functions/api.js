@@ -5,6 +5,8 @@ import multer from 'multer';
 import { PDFDocument, degrees } from 'pdf-lib';
 import archiver from 'archiver';
 import { Stream } from 'stream';
+import fs from 'fs';
+import path from 'path';
 
 const app = express();
 app.use(cors());
@@ -1036,8 +1038,6 @@ router.post('/process/pdf-to-jpg', express.json(), async (req, res) => {
 const isDev = process.env.NODE_ENV !== 'production' && !process.env.NETLIFY;
 
 if (isDev) {
-    const fs = await import('fs');
-    const path = await import('path');
     const MOCK_DIR = '/tmp/mock-s3';
 
     // Mock S3 Upload Route
