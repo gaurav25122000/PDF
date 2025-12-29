@@ -1018,6 +1018,15 @@ router.post('/process/pdf-to-jpg', express.json(), async (req, res) => {
 });
 
 
+const isDev = process.env.NODE_ENV !== 'production' && !process.env.NETLIFY;
+
+if (isDev && process.argv[1].endsWith('api.js')) {
+    const port = process.env.PORT || 3000;
+    app.listen(port, () => {
+        console.log(`Backend running locally on http://localhost:${port}`);
+    });
+}
+
 export const handler = serverless(app, {
     binary: [
         'application/pdf',
