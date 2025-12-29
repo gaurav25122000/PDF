@@ -2,6 +2,9 @@
   command = "cd frontend && npm install && npm run build"
   publish = "frontend/dist"
 
+[build.environment]
+  PYTHON_VERSION = "3.9"
+
 [functions]
   directory = "backend"
 
