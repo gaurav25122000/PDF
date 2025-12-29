@@ -86,7 +86,7 @@ const EditPDF = () => {
                     scaleY: fCanvas.height / img.height
                 });
                 fCanvas.add(img);
-                fCanvas.sendToBack(img);
+                fCanvas.moveObjectTo(img, 0);
                 fCanvas.requestRenderAll();
             } catch (err) {
                  try {
@@ -100,7 +100,7 @@ const EditPDF = () => {
                         scaleY: fCanvas.height / img.height
                     });
                      fCanvas.add(img);
-                     fCanvas.sendToBack(img);
+                     fCanvas.moveObjectTo(img, 0);
                      fCanvas.requestRenderAll();
                  } catch (e) {
                      console.error("Fabric Image Error:", e);
