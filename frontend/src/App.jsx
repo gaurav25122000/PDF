@@ -24,6 +24,13 @@ import PdfToPptx from './pages/PdfToPptx';
 import WordToPdf from './pages/WordToPdf';
 import ExcelToPdf from './pages/ExcelToPdf';
 
+import Privacy from './pages/Privacy';
+import Terms from './pages/Terms';
+import Security from './pages/Security';
+import FAQ from './pages/FAQ';
+import About from './pages/About';
+import Contact from './pages/Contact';
+
 import { HelmetProvider } from 'react-helmet-async';
 
 function App() {
@@ -70,6 +77,13 @@ function App() {
                     <Route path="/watermark-pdf" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><WatermarkPDF /></div>} />
                     <Route path="/page-numbers" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><PageNumbersPDF /></div>} />
                     
+                    <Route path="/privacy" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center bg-white absolute inset-0 z-50"><Privacy /></div>} />
+                    <Route path="/terms" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center bg-white absolute inset-0 z-50"><Terms /></div>} />
+                    <Route path="/security" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center bg-white absolute inset-0 z-50"><Security /></div>} />
+                    <Route path="/faq" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center bg-white absolute inset-0 z-50"><FAQ /></div>} />
+                    <Route path="/about" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center bg-white absolute inset-0 z-50"><About /></div>} />
+                    <Route path="/contact" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center bg-white absolute inset-0 z-50"><Contact /></div>} />
+
                     <Route path="*" element={<div className="pointer-events-auto" />} />
                     </Routes>
                 </div>

@@ -33,7 +33,7 @@ const Navbar = () => {
              {user ? (
                  <div className="flex items-center gap-4">
                      <div className="text-right hidden sm:block">
-                        <div className="text-sm font-bold text-gray-200">{user.email}</div>
+                        <div className="text-sm font-bold text-gray-200">{user.name || user.email}</div>
                         <div className="text-xs text-marvel-red uppercase font-bold tracking-wide">
                             {user.usageToday !== undefined ? `${3 - user.usageToday} uses left` : 'Member'}
                         </div>

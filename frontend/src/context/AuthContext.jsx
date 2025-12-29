@@ -98,8 +98,8 @@ export const AuthProvider = ({ children }) => {
     return response.data;
   };
 
-  const signup = async (email, password) => {
-    const response = await axios.post('/api/auth/signup', { email, password });
+  const signup = async (email, password, name) => {
+    const response = await axios.post('/api/auth/signup', { email, password, name });
     setToken(response.data.token);
     setUser(response.data.user);
     return response.data;

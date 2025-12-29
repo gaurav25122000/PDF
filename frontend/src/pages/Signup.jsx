@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, UserPlus } from 'lucide-react';
+import { ArrowLeft, UserPlus, Mail, Lock, User as UserIcon } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 const Signup = () => {
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -17,7 +19,7 @@ const Signup = () => {
     
     setError('');
     try {
-      await signup(email, password);
+      await signup(email, password, name);
       navigate('/');
     } catch (err) {
       setError(err.message);
@@ -25,72 +27,100 @@ const Signup = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center p-4">
-      <div className="bg-slate-800 p-8 rounded-2xl shadow-xl w-full max-w-md border border-slate-700">
-        <Link to="/" className="text-slate-400 hover:text-white mb-6 inline-flex items-center gap-2">
-            <ArrowLeft size={20} /> Back to Home
+    <div className="flex items-center justify-center p-4 w-full max-w-md relative z-10">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="bg-marvel-black/95 backdrop-blur-xl p-8 rounded-2xl shadow-2xl w-full border border-gray-800"
+      >
+        <Link to="/" className="text-gray-400 hover:text-marvel-red mb-8 inline-flex items-center gap-2 transition-colors text-sm font-bold uppercase tracking-wide group">
+             <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" /> Back to Home
         </Link>
 
-        <h2 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent mb-6">
-          Create Account
-        </h2>
+        <div className="text-center mb-8">
+            <h2 className="text-4xl font-heading text-white mb-2 tracking-tight">
+              Join MarvelPDF
+            </h2>
+            <p className="text-gray-400">Create your account to transform PDFs</p>
+        </div>
 
         {error && (
-            <div className="bg-red-500/10 border border-red-500/50 text-red-500 p-4 rounded-lg mb-6">
+            <motion.div 
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                className="bg-red-500/10 border-l-4 border-marvel-red text-marvel-red p-4 rounded-r-lg mb-6 text-sm font-medium"
+            >
                 {error}
-            </div>
+            </motion.div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Email</label>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="relative group">
+            <UserIcon className="absolute left-3 top-3.5 text-gray-500 group-focus-within:text-marvel-red transition-colors" size={20} />
+            <input
+              type="text"
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full bg-gray-900/50 border border-gray-700 rounded-xl pl-10 pr-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-marvel-red focus:ring-1 focus:ring-marvel-red transition-all"
+              placeholder="Your Name"
+            />
+          </div>
+
+          <div className="relative group">
+            <Mail className="absolute left-3 top-3.5 text-gray-500 group-focus-within:text-marvel-red transition-colors" size={20} />
             <input
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none transition-all"
-              placeholder="you@example.com"
+              className="w-full bg-gray-900/50 border border-gray-700 rounded-xl pl-10 pr-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-marvel-red focus:ring-1 focus:ring-marvel-red transition-all"
+              placeholder="Email Address"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Password</label>
+          
+          <div className="relative group">
+            <Lock className="absolute left-3 top-3.5 text-gray-500 group-focus-within:text-marvel-red transition-colors" size={20} />
             <input
               type="password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none transition-all"
-              placeholder="••••••••"
+              className="w-full bg-gray-900/50 border border-gray-700 rounded-xl pl-10 pr-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-marvel-red focus:ring-1 focus:ring-marvel-red transition-all"
+              placeholder="Password"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Confirm Password</label>
+          
+          <div className="relative group">
+            <Lock className="absolute left-3 top-3.5 text-gray-500 group-focus-within:text-marvel-red transition-colors" size={20} />
             <input
               type="password"
               required
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none transition-all"
-              placeholder="••••••••"
+              className="w-full bg-gray-900/50 border border-gray-700 rounded-xl pl-10 pr-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-marvel-red focus:ring-1 focus:ring-marvel-red transition-all"
+              placeholder="Confirm Password"
             />
           </div>
           
-          <button
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             type="submit"
-            className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold py-3 rounded-lg transition-all flex items-center justify-center gap-2"
+            className="w-full bg-marvel-red hover:bg-red-700 text-white font-bold py-3.5 rounded-xl mt-4 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-red-900/20"
           >
-            <UserPlus size={20} /> Sign Up
-          </button>
+            <UserPlus size={20} /> Create Account
+          </motion.button>
         </form>
 
-        <p className="mt-6 text-center text-slate-400">
+        <p className="mt-8 text-center text-gray-400">
             Already have an account?{' '}
-            <Link to="/login" className="text-purple-400 hover:text-purple-300 font-medium">
+            <Link to="/login" className="text-white hover:text-marvel-red font-bold transition-colors">
                 Log in
             </Link>
         </p>
-      </div>
+      </motion.div>
     </div>
   );
 };

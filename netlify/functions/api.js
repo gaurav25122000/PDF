@@ -156,25 +156,31 @@ const logUsage = async (req) => {
 
 router.post('/auth/signup', express.json(), async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const { email, password, name } = req.body;
         if (!email || !password) return res.status(400).json({ error: "Email and password required" });
         
         const hashedPassword = await bcrypt.hash(password, 10);
         
+        // Try inserting with name. If it fails (col doesn't exist), fallback?
+        // Better: Expect user to update DB.
         const result = await query(
-            'INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING id, email',
-            [email, hashedPassword]
+            'INSERT INTO users (email, password_hash, name) VALUES ($1, $2, $3) RETURNING id, email, name',
+            [email, hashedPassword, name || '']
         );
         
         const user = result.rows[0];
         const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
         
-        res.json({ token, user: { id: user.id, email: user.email } });
+        res.json({ token, user: { id: user.id, email: user.email, name: user.name } });
     } catch (e) {
         if (e.code === '23505') { // Unique violation
             return res.status(400).json({ error: "Email already registered" });
         }
-        console.error(e);
+        console.error("Signup error:", e);
+        // If column 'name' missing, it throws 42703
+        if (e.code === '42703') {
+             return res.status(500).json({ error: "Database needs update: Missing 'name' column." });
+        }
         res.status(500).json({ error: "Signup failed" });
     }
 });
@@ -200,6 +206,10 @@ router.post('/auth/login', express.json(), async (req, res) => {
 router.get('/auth/me', optionalAuth, async (req, res) => {
     if (!req.user) return res.status(401).json({ error: "Not logged in" });
     
+    // Get User Details (Name)
+    const userRes = await query('SELECT id, email, name FROM users WHERE id = $1', [req.user.id]);
+    const userData = userRes.rows[0];
+
     // Get usage count
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const countRes = await query(
@@ -208,7 +218,7 @@ router.get('/auth/me', optionalAuth, async (req, res) => {
     );
     
     res.json({ 
-        user: req.user,
+        user: userData,
         usageToday: parseInt(countRes.rows[0].count),
         limit: 3
     });
