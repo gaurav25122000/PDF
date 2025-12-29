@@ -585,4 +585,13 @@ router.post('/process/pdf-to-jpg', upload.single('file'), async (req, res) => {
 });
 
 
-export const handler = serverless(app);
+export const handler = serverless(app, {
+    binary: [
+        'application/pdf', 
+        'application/zip', 
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'image/*'
+    ]
+});
