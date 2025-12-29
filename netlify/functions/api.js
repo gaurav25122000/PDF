@@ -372,21 +372,9 @@ router.post('/process/split', express.json(), async (req, res) => {
         copiedPages.forEach((page) => subPdf.addPage(page));
         const subPdfBytes = await subPdf.save();
 
-        // Create Zip
-        const archive = archiver('zip');
-        const chunks = [];
-        archive.on('data', chunk => chunks.push(chunk));
-        
-        archive.append(Buffer.from(subPdfBytes), { name: 'extracted.pdf' });
-        await archive.finalize();
-        
-        // Wait for zip to finish
-        await new Promise(resolve => archive.on('end', resolve));
-        const zipBuffer = Buffer.concat(chunks);
-
-        // Upload Result
-        const resultKey = `results/${Date.now()}_${uuidv4()}_split.zip`;
-        await uploadBuffer(resultKey, zipBuffer, 'application/zip');
+        // Upload Result Directly (No Zip)
+        const resultKey = `results/${Date.now()}_${uuidv4()}_split.pdf`;
+        await uploadBuffer(resultKey, Buffer.from(subPdfBytes), 'application/pdf');
         
         await logUsage(req, 'Split PDF'); 
 
@@ -471,7 +459,7 @@ router.post('/process/compress', express.json(), async (req, res) => {
         const copiedPages = await compressedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
         copiedPages.forEach(p => compressedPdf.addPage(p));
 
-        const pdfBytes = await compressedPdf.save({ useObjectStreams: false }); 
+        const pdfBytes = await compressedPdf.save(); // Default includes object streams (compression) 
 
         const resultKey = `results/${Date.now()}_${uuidv4()}_compressed.pdf`;
         await uploadBuffer(resultKey, Buffer.from(pdfBytes), 'application/pdf');
@@ -640,14 +628,29 @@ router.post('/process/edit', express.json(), async (req, res) => {
             const page = pages[op.page];
 
             if (op.type === 'image') {
-                const base64Data = op.data.split(',')[1];
-                const imageBytes = Buffer.from(base64Data, 'base64');
+                let imageBytes;
+                if (op.key) {
+                    // Download overlay from S3
+                    imageBytes = await downloadToBuffer(op.key);
+                } else if (op.data) {
+                    // Legacy base64 support
+                    const base64Data = op.data.split(',')[1];
+                    imageBytes = Buffer.from(base64Data, 'base64');
+                } else {
+                    continue;
+                }
                 
                 let image;
-                 if (op.data.startsWith('data:image/png')) {
+                 // Try PNG first (common for overlays), then JPG
+                 try {
                     image = await pdfDoc.embedPng(imageBytes);
-                } else {
-                    image = await pdfDoc.embedJpg(imageBytes);
+                } catch (e) {
+                    try {
+                        image = await pdfDoc.embedJpg(imageBytes);
+                    } catch (e2) {
+                        console.error("Failed to embed image op");
+                        continue;
+                    }
                 }
 
                 page.drawImage(image, {
