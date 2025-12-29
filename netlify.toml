@@ -6,7 +6,7 @@
   PYTHON_VERSION = "3.9"
 
 [functions]
-  directory = "backend"
+  directory = "netlify/functions"
 
 [[redirects]]
   from = "/api/*"
