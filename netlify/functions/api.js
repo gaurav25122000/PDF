@@ -314,6 +314,25 @@ router.get('/health', (req, res) => {
     res.json({ status: "ok", environment: "nodejs" });
 });
 
+// DEBUG: Env Var Checker (Remove later)
+router.get('/debug-env', (req, res) => {
+    const vars = [
+        'MY_AWS_ACCESS_KEY_ID', 
+        'MY_AWS_SECRET_ACCESS_KEY', 
+        'MY_AWS_REGION', 
+        'MY_AWS_BUCKET_NAME',
+        'DATABASE_URL',
+        'JWT_SECRET'
+    ];
+    
+    const status = {};
+    vars.forEach(v => {
+        status[v] = process.env[v] ? (process.env[v].length > 5 ? 'PRESENT (Len > 5)' : 'PRESENT (Short)') : 'MISSING';
+    });
+    
+    res.json(status);
+});
+
 // MERGE PDF
 router.post('/process/merge', express.json(), async (req, res) => {
     try {
