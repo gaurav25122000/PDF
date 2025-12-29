@@ -10,7 +10,7 @@ import * as fabric from 'fabric';
 
 // Configure PDF.js worker
 // Using CDN for worker to avoid build complexity with vite for now
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+pdfjsLib.GlobalWorkerOptions.workerSrc = `/pdf.worker.min.mjs`;
 
 const EditPDF = () => {
   const [file, setFile] = useState(null);

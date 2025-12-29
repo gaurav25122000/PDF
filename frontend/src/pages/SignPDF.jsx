@@ -8,7 +8,7 @@ import axios from 'axios';
 import * as pdfjsLib from 'pdfjs-dist';
 import * as fabric from 'fabric';
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+pdfjsLib.GlobalWorkerOptions.workerSrc = `/pdf.worker.min.mjs`;
 
 const SignPDF = () => {
   const [file, setFile] = useState(null);

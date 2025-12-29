@@ -1,11 +1,14 @@
 
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
 import { Clock, AlertCircle } from 'lucide-react';
 import axios from 'axios';
 
 const UsageBanner = () => {
     const [status, setStatus] = useState(null);
     const [timeLeft, setTimeLeft] = useState('');
+
+    const { user } = useAuth();
 
     const fetchStatus = async () => {
         try {
@@ -28,7 +31,7 @@ const UsageBanner = () => {
             window.removeEventListener('usage-updated', fetchStatus);
             clearInterval(interval);
         };
-    }, []);
+    }, [user]);
 
     // Countdown Timer Logic
     useEffect(() => {
