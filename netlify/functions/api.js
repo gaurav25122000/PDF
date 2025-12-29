@@ -7,7 +7,7 @@ import serverless from 'serverless-http';
 // import { Stream } from 'stream';
 
 const app = express();
-app.use(cors());
+// app.use(cors());
 const router = express.Router();
 
 // DEBUG: Catch-all to see what's happening if no route matches
@@ -28,10 +28,10 @@ app.use('/api', router);
 app.use('/', router); 
 
 // Configure multer for memory storage
-const upload = multer({ 
-    storage: multer.memoryStorage(),
-    limits: { fileSize: 50 * 1024 * 1024 } // 50MB limit per file
-});
+// const upload = multer({ 
+//    storage: multer.memoryStorage(),
+//    limits: { fileSize: 50 * 1024 * 1024 } // 50MB limit per file
+// });
 
 
 /**
