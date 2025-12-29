@@ -1,5 +1,5 @@
 [build]
-  command = "cd netlify/functions && npm install && cd ../../frontend && npm install && npm run build"
+  command = "chmod +x install_linux_gs.sh && ./install_linux_gs.sh && cd netlify/functions && npm install && cd ../../frontend && npm install && npm run build"
   publish = "frontend/dist"
 
 [build.environment]

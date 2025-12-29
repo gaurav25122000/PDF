@@ -148,7 +148,7 @@ const checkRateLimit = async (req, res, next) => {
             resetTime = new Date(oldestDate.getTime() + 24 * 60 * 60 * 1000);
         }
 
-        if (count >= 3) {
+        if (count >= 300) {
             return res.status(429).json({
                 error: "Daily limit reached.",
                 usage: count,
@@ -467,11 +467,6 @@ router.post('/process/compress', express.json(), async (req, res) => {
 
         await fs.writeFile(inputPath, buffer);
 
-        // Determine Ghostscript path
-        // Default to 'gs' (system path) for local dev
-        // For Netlify, if we bundle a binary, we might set GS_PATH to that location
-        const gsPath = process.env.GS_PATH || 'gs';
-
         // Helper to check if file exists
         const fileExists = async (path) => {
             try {
@@ -481,6 +476,25 @@ router.post('/process/compress', express.json(), async (req, res) => {
                 return false;
             }
         };
+
+        // Determine Ghostscript path
+        // 1. Check for bundled binary (Netlify/Linux) using __dirname
+        
+        let gsPath = process.env.GS_PATH || 'gs';
+        
+        // Try to find bundled binary
+        const { fileURLToPath } = await import('url');
+        const __filename = fileURLToPath(import.meta.url);
+        const __dirname = path.dirname(__filename);
+        
+        const bundledGsPath = path.join(__dirname, 'bin', 'gs');
+        
+        if (await fileExists(bundledGsPath)) {
+            gsPath = bundledGsPath;
+            console.log("Using bundled Ghostscript:", gsPath);
+        } else {
+             console.log("Using system Ghostscript:", gsPath);
+        }
 
         // Command: Compress PDF
         // -dPDFSETTINGS=/ebook (150 dpi) - good balance?
@@ -1018,7 +1032,62 @@ router.post('/process/pdf-to-jpg', express.json(), async (req, res) => {
 });
 
 
+
 const isDev = process.env.NODE_ENV !== 'production' && !process.env.NETLIFY;
+
+if (isDev) {
+    const fs = await import('fs');
+    const path = await import('path');
+    const MOCK_DIR = '/tmp/mock-s3';
+
+    // Mock S3 Upload Route
+    // Note: We need raw body or stream for this. Express json/urlencoded parser might interfere if not handled carefully for binary.
+    // However, our app.use(express.json) has limit 500mb. 
+    // If Content-Type is application/pdf, express default parsers won't parse it, so req.body might be empty or we need raw parser.
+    // Let's use a simpler approach: explicitly handle this route BEFORE parsers if possible, or just stream req.
+    // Use app.put instead of router.put to be global?
+    // Actually, let's put it on `app` before parsers? No, parsers are already applied at top of file.
+    // We can use `express.raw({ type: '*/*', limit: '500mb' })` for this specific route?
+    
+    app.put('/mock-s3/:key(*)', express.raw({ type: '*/*', limit: '500mb' }), async (req, res) => {
+        try {
+            const key = decodeURIComponent(req.params.key);
+            const filePath = path.join(MOCK_DIR, key);
+            const dir = path.dirname(filePath);
+            if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+            
+            // If express.raw worked, req.body is buffer.
+            if (Buffer.isBuffer(req.body)) {
+                 fs.writeFileSync(filePath, req.body);
+            } else {
+                 // Fallback if body parsing failed/skipped
+                 // Stream pipe
+                 const writeStream = fs.createWriteStream(filePath);
+                 req.pipe(writeStream);
+                 await new Promise((resolve, reject) => {
+                     writeStream.on('finish', resolve);
+                     writeStream.on('error', reject);
+                 });
+            }
+            console.log(`[MockS3] Uploaded ${key}`);
+            res.sendStatus(200);
+        } catch (e) {
+            console.error(e);
+            res.status(500).send("Mock Upload Failed");
+        }
+    });
+
+    // Mock S3 Download Route
+    app.get('/mock-s3/:key(*)', async (req, res) => {
+        const key = decodeURIComponent(req.params.key);
+        const filePath = path.join(MOCK_DIR, key);
+        if (fs.existsSync(filePath)) {
+            res.sendFile(filePath);
+        } else {
+            res.status(404).send("File not found in Mock S3");
+        }
+    });
+}
 
 if (isDev && process.argv[1].endsWith('api.js')) {
     const port = process.env.PORT || 3000;
