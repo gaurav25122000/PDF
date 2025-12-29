@@ -53,7 +53,7 @@ const SplitPDF = () => {
         const { downloadUrl } = response.data;
         const link = document.createElement('a');
         link.href = downloadUrl;
-        link.setAttribute('download', 'split.zip');
+        link.setAttribute('download', 'split.pdf');
         document.body.appendChild(link);
         link.click();
         link.parentNode.removeChild(link);

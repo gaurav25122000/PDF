@@ -132,43 +132,60 @@ const EditPDF = () => {
     setProcessing(true);
     
     // Collect objects
-    const objects = fabricCanvasRef.current.getObjects();
     // Use Overlay Strategy
     const originalBg = fabricCanvasRef.current.backgroundImage;
     fabricCanvasRef.current.backgroundImage = null;
-    const overlayData = fabricCanvasRef.current.toDataURL({ format: 'png', multiplier: 2 });
+    const overlayDataUrl = fabricCanvasRef.current.toDataURL({ format: 'png', multiplier: 2 });
     fabricCanvasRef.current.backgroundImage = originalBg; 
     
-    const op = {
-        page: currentPage - 1,
-        type: "image",
-        data: overlayData,
-        x: 0,
-        y: 0,
-        width: fabricCanvasRef.current.width / 1.5,
-        height: fabricCanvasRef.current.height / 1.5
-    };
-    
-    const operations = JSON.stringify([op]);
-
     try {
-        // 1. Upload to S3
-        const uploadConfigRes = await axios.post('/api/s3/upload-url', {
+        // 1. Upload Original PDF to S3
+        const pdfUploadRes = await axios.post('/api/s3/upload-url', {
              filename: file.name,
              contentType: file.type
         });
-        const { uploadUrl, key } = uploadConfigRes.data;
+        const { uploadUrl: pdfUploadUrl, key: pdfKey } = pdfUploadRes.data;
         
-        await fetch(uploadUrl, {
+        await fetch(pdfUploadUrl, {
              method: 'PUT',
              body: file,
              headers: { 'Content-Type': file.type }
         });
 
-        // 2. Trigger Edit
-        const response = await axios.post('/api/process/edit', { key, operations });
+        // 2. Upload Overlay Image to S3 (Avoids 6MB body limit)
+        // Convert Base64 to Blob
+        const base64Response = await fetch(overlayDataUrl);
+        const overlayBlob = await base64Response.blob();
+
+        const overlayFilename = `overlay_${Date.now()}.png`;
+        const overlayUploadRes = await axios.post('/api/s3/upload-url', {
+            filename: overlayFilename,
+            contentType: 'image/png'
+        });
+        const { uploadUrl: overlayUploadUrl, key: overlayKey } = overlayUploadRes.data;
+
+        await fetch(overlayUploadUrl, {
+            method: 'PUT',
+            body: overlayBlob,
+            headers: { 'Content-Type': 'image/png' }
+        });
+
+        // 3. Prepare Operations
+        const op = {
+            page: currentPage - 1,
+            type: "image",
+            key: overlayKey, // Send KEY instead of DATA
+            x: 0,
+            y: 0,
+            width: fabricCanvasRef.current.width / 1.5,
+            height: fabricCanvasRef.current.height / 1.5
+        };
+        const operations = JSON.stringify([op]);
+
+        // 4. Trigger Edit
+        const response = await axios.post('/api/process/edit', { key: pdfKey, operations });
         
-        // 3. Download
+        // 5. Download
         const { downloadUrl } = response.data;
         const link = document.createElement('a');
         link.href = downloadUrl;
