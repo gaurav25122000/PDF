@@ -4,7 +4,7 @@
   base = "frontend"
 
 [functions]
-  directory = "frontend/backend"
+  directory = "backend"
 
 [[redirects]]
   from = "/api/*"
