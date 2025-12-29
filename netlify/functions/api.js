@@ -517,7 +517,8 @@ router.post('/process/compress', express.json(), async (req, res) => {
         }
 
         // Command
-        const command = `"${gsPath}" -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 -dPDFSETTINGS=/ebook -dNOPAUSE -dQUIET -dBATCH -sOutputFile="${outputPath}" "${inputPath}"`;
+        // Using /screen (72 dpi) for maximum speed and compression to avoid timeouts.
+        const command = `"${gsPath}" -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 -dPDFSETTINGS=/screen -dFastWebView=true -dNOPAUSE -dQUIET -dBATCH -sOutputFile="${outputPath}" "${inputPath}"`;
         
         console.log("[API] Executing Ghostscript command...");
         const startTime = Date.now();
