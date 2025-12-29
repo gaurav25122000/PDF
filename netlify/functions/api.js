@@ -8,6 +8,8 @@ import { Stream } from 'stream';
 
 const app = express();
 app.use(cors());
+const router = express.Router();
+
 // DEBUG: Catch-all to see what's happening if no route matches
 router.all('*', (req, res) => {
     res.status(404).json({
