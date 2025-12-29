@@ -8,7 +8,6 @@
 [functions]
   directory = "netlify/functions"
   included_files = ["netlify/functions/bin/gs"]
-  timeout = 26
 
 [[redirects]]
   from = "/ping"
