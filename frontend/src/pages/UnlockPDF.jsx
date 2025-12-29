@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import ToolModal from '../components/ToolModal';
+import SEO from '../components/SEO';
 import FileUploader from '../components/FileUploader';
 import { File, Loader2, Download, Unlock } from 'lucide-react';
 import axios from 'axios';
@@ -51,12 +52,29 @@ const UnlockPDF = () => {
     }
   };
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Unlock PDF - MarvelPDF",
+    "applicationCategory": "ProductivityApplication",
+    "operatingSystem": "Any",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "description": "Unlock PDF files online for free. Remove passwords and restrictions from your PDF documents.",
+    "featureList": "PDF Unlocking, Remove Password, Secure"
+  };
+
   return (
     <ToolModal title="Unlock PDF file">
-      <Helmet>
-        <title>Unlock PDF - MarvelPDF</title>
-        <meta name="description" content="Remove PDF password security, giving you the freedom to use your PDF files." />
-      </Helmet>
+      <SEO 
+        title="Unlock PDF - Remove Password Online" 
+        description="Remove PDF password security online for free. Unlock password-protected PDF files instantly. Freedom to use your documents."
+        keywords="unlock pdf, remove pdf password, pdf password remover, free pdf unlocker, decrypt pdf"
+        schema={jsonLd}
+      />
       
       <p className="text-gray-500 mb-6 text-center">
         Break the chains. Remove password security instantly.

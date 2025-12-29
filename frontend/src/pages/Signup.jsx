@@ -7,9 +7,26 @@ import { motion } from 'framer-motion';
 import SEO from '../components/SEO';
 
 const Signup = () => {
- // ... state logic
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState('');
+  const { signup } = useAuth();
+  const navigate = useNavigate();
 
-  // ... handleSubmit
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (password !== confirmPassword) return setError("Passwords don't match");
+    
+    setError('');
+    try {
+      await signup(email, password, name);
+      navigate('/');
+    } catch (err) {
+      setError(err.message);
+    }
+  };
 
   return (
     <div className="flex items-center justify-center p-4 w-full max-w-md relative z-10">

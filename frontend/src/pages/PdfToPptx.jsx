@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import ToolModal from '../components/ToolModal';
+import SEO from '../components/SEO';
 import FileUploader from '../components/FileUploader';
 import { File, Loader2, Download, Presentation } from 'lucide-react';
 import axios from 'axios';
@@ -49,12 +50,29 @@ const PdfToPptx = () => {
     }
   };
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "PDF to PowerPoint - MarvelPDF",
+    "applicationCategory": "ProductivityApplication",
+    "operatingSystem": "Any",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "description": "Convert PDF files to editable PowerPoint presentations online for free. Create slides from your documents.",
+    "featureList": "PDF to PPTX conversion, Slide Creation, Secure"
+  };
+
   return (
     <ToolModal title="PDF to PowerPoint">
-      <Helmet>
-        <title>PDF to PPTX - MarvelPDF</title>
-        <meta name="description" content="Turn your PDFs into editable PowerPoint presentations." />
-      </Helmet>
+      <SEO 
+        title="PDF to PowerPoint Converter - Free Online Tool" 
+        description="Turn your PDF files into easy to edit PPT and PPTX slideshows online for free. Create presentations from PDF documents instantly."
+        keywords="pdf to ppt, convert pdf to powerpoint, pdf to pptx, free pdf to ppt converter, pdf slides"
+        schema={jsonLd}
+      />
       
       <p className="text-gray-500 mb-6 text-center">
         Transform PDFs into dynamic PowerPoint slides.

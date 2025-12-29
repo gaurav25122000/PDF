@@ -7,9 +7,22 @@ import { motion } from 'framer-motion';
 import SEO from '../components/SEO';
 
 const Login = () => {
-  // ... state logic
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const { login } = useAuth();
+  const navigate = useNavigate();
 
-  // ... handleSubmit
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    try {
+      await login(email, password);
+      navigate('/');
+    } catch (err) {
+      setError(err.response?.data?.error || "Login failed");
+    }
+  };
 
   return (
     <div className="flex items-center justify-center p-4 w-full max-w-md relative z-10">

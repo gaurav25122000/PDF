@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import ToolModal from '../components/ToolModal';
+import SEO from '../components/SEO';
 import FileUploader from '../components/FileUploader';
 import { File, Loader2, Download, Image } from 'lucide-react';
 import axios from 'axios';
@@ -49,12 +50,29 @@ const PdfToJpg = () => {
     }
   };
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "PDF to JPG - MarvelPDF",
+    "applicationCategory": "ProductivityApplication",
+    "operatingSystem": "Any",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "description": "Convert PDF to JPG images online for free. Extract high-quality images from your PDF documents.",
+    "featureList": "PDF to Image conversion, High Quality, Secure"
+  };
+
   return (
     <ToolModal title="PDF to JPG">
-      <Helmet>
-        <title>PDF to JPG - MarvelPDF</title>
-        <meta name="description" content="Convert each PDF page into a JPG image." />
-      </Helmet>
+      <SEO 
+        title="PDF to JPG Converter - Free Online Tool" 
+        description="Convert each PDF page into a JPG image online for free. High-quality extraction, no installation required. Fast and secure."
+        keywords="pdf to jpg, convert pdf to image, pdf to jpeg, free pdf converter, extract images from pdf"
+        schema={jsonLd}
+      />
       
       <p className="text-gray-500 mb-6 text-center">
         Transform your PDF pages into high-quality images.

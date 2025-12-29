@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Helmet } from 'react-helmet-async';
+import { Helmet } from 'react-helmet-async'; // Can remove if unused
+import SEO from '../components/SEO';
 import ToolModal from '../components/ToolModal';
 import FileUploader from '../components/FileUploader';
 import { File, Loader2, Download, Minimize2 } from 'lucide-react';
@@ -48,13 +49,6 @@ const CompressPDF = () => {
         setLoading(false);
     }
   };
-
-  return (
-    <ToolModal title="Compress PDF file">
-// ... imports
-import SEO from '../components/SEO';
-
-// ... component logic
 
   const jsonLd = {
     "@context": "https://schema.org",

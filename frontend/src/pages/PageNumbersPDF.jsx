@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import ToolModal from '../components/ToolModal';
+import SEO from '../components/SEO';
 import FileUploader from '../components/FileUploader';
 import { File, Loader2, Hash } from 'lucide-react';
 import axios from 'axios';
@@ -50,12 +51,29 @@ const PageNumbersPDF = () => {
     }
   };
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Page Numbers - MarvelPDF",
+    "applicationCategory": "ProductivityApplication",
+    "operatingSystem": "Any",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "description": "Add page numbers to PDF files online for free. Number your PDF pages easily.",
+    "featureList": "Add Page Numbers, Pagination, Secure"
+  };
+
   return (
     <ToolModal title="Page Numbers">
-      <Helmet>
-        <title>Page Numbers - MarvelPDF</title>
-        <meta name="description" content="Add page numbers to your PDFs efficiently with MarvelPDF." />
-      </Helmet>
+      <SEO 
+        title="Add Page Numbers to PDF - Free Online Tool" 
+        description="Add page numbers to your PDFs efficiently online for free. Select position and format for PDF pagination."
+        keywords="page numbers pdf, add page numbers, number pdf pages, paginate pdf, pdf numbering"
+        schema={jsonLd}
+      />
       
       <p className="text-gray-500 mb-6 text-center">
         Add page numbers into your PDFs with ease.

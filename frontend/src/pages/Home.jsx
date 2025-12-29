@@ -154,15 +154,6 @@ const Home = () => {
     show: { opacity: 1, y: 0 }
   };
 
-  return (
-    <div className="bg-gray-50 min-h-screen">
-import SEO from '../components/SEO';
-
-// ... imports remain same
-
-const Home = () => {
-  // ... tool definitions remain same
-
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import ToolModal from '../components/ToolModal';
+import SEO from '../components/SEO';
 import FileUploader from '../components/FileUploader';
 import { File, Loader2, RotateCw } from 'lucide-react';
 import axios from 'axios';
@@ -51,12 +52,29 @@ const RotatePDF = () => {
     }
   };
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Rotate PDF - MarvelPDF",
+    "applicationCategory": "ProductivityApplication",
+    "operatingSystem": "Any",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "description": "Rotate PDF pages online for free. Permanently rotate PDF pages to the correct orientation.",
+    "featureList": "PDF Rotation, Page Orientation, Secure"
+  };
+
   return (
     <ToolModal title="Rotate PDF file">
-      <Helmet>
-        <title>Rotate PDF - MarvelPDF</title>
-        <meta name="description" content="Rotate your PDF files. The best online tool to orient your documents correctly." />
-      </Helmet>
+      <SEO 
+        title="Rotate PDF - Free Online Tool" 
+        description="Rotate your PDF pages online for free. Permanently rotate whole PDF or specific pages 90, 180, or 270 degrees. Save your new orientation."
+        keywords="rotate pdf, pdf rotator, rotate pages, turn pdf, pdf page orientation"
+        schema={jsonLd}
+      />
       
       <p className="text-gray-500 mb-6 text-center">
         Rotate PDF pages. Left, right, or upside down.

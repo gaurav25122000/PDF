@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import ToolModal from '../components/ToolModal';
+import SEO from '../components/SEO';
 import FileUploader from '../components/FileUploader';
 import { File, Loader2, Stamp } from 'lucide-react';
 import axios from 'axios';
@@ -51,12 +52,29 @@ const WatermarkPDF = () => {
     }
   };
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Watermark PDF - MarvelPDF",
+    "applicationCategory": "ProductivityApplication",
+    "operatingSystem": "Any",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "description": "Add watermark to PDF files online for free. Custom text or image watermarks for your documents.",
+    "featureList": "PDF Watermarking, Custom Text, Secure"
+  };
+
   return (
     <ToolModal title="Watermark PDF">
-      <Helmet>
-        <title>Watermark PDF - MarvelPDF</title>
-        <meta name="description" content="Stamp an image or text over your PDF instantly with MarvelPDF." />
-      </Helmet>
+      <SEO 
+        title="Watermark PDF - Add Text Stamp Online" 
+        description="Stamp a text or image watermark over your PDF in seconds online for free. Customize font, position, and transparency."
+        keywords="watermark pdf, add watermark, stamp pdf, pdf logo, confidential pdf"
+        schema={jsonLd}
+      />
       
       <p className="text-gray-500 mb-6 text-center">
         Stamp an image or text over your PDF in seconds.

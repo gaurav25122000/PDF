@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Helmet } from 'react-helmet-async';
+import { Helmet } from 'react-helmet-async'; // Can remove
+import SEO from '../components/SEO';
 import ToolModal from '../components/ToolModal';
 import FileUploader from '../components/FileUploader';
 import { File, Loader2, Download, FileText } from 'lucide-react';
@@ -48,13 +49,6 @@ const PdfToWord = () => {
         setLoading(false);
     }
   };
-
-  return (
-    <ToolModal title="PDF to Word">
-// ... imports
-import SEO from '../components/SEO';
-
-// ... component logic
 
   const jsonLd = {
     "@context": "https://schema.org",

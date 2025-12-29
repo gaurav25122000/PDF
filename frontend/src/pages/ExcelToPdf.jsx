@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import ToolModal from '../components/ToolModal';
+import SEO from '../components/SEO';
 import FileUploader from '../components/FileUploader';
 import { File, Loader2, Download, Sheet } from 'lucide-react';
 import axios from 'axios';
@@ -49,12 +50,29 @@ const ExcelToPdf = () => {
     }
   };
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Excel to PDF - MarvelPDF",
+    "applicationCategory": "ProductivityApplication",
+    "operatingSystem": "Any",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "description": "Convert Excel spreadsheets to PDF online for free. Make EXCEL spreadsheets easy to read by converting them to PDF.",
+    "featureList": "Excel to PDF conversion, XLSX support, Secure"
+  };
+
   return (
     <ToolModal title="Excel to PDF">
-      <Helmet>
-        <title>Excel to PDF - MarvelPDF</title>
-        <meta name="description" content="Convert Excel spreadsheets to PDF with superhero precision." />
-      </Helmet>
+      <SEO 
+        title="Excel to PDF Converter - Free Online Tool" 
+        description="Make EXCEL spreadsheets easy to read by converting them to PDF online for free. Convert XLS and XLSX files to PDF instantly."
+        keywords="excel to pdf, convert xls to pdf, xlsx to pdf, free excel to pdf converter, spreadsheet converter"
+        schema={jsonLd}
+      />
       
       <p className="text-gray-500 mb-6 text-center">
         Freeze your dynamic spreadsheets into static PDFs.

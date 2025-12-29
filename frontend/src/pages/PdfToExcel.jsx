@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import ToolModal from '../components/ToolModal';
+import SEO from '../components/SEO';
 import FileUploader from '../components/FileUploader';
 import { File, Loader2, Download, Sheet } from 'lucide-react';
 import axios from 'axios';
@@ -49,12 +50,29 @@ const PdfToExcel = () => {
     }
   };
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "PDF to Excel - MarvelPDF",
+    "applicationCategory": "ProductivityApplication",
+    "operatingSystem": "Any",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "description": "Convert PDF data into editable Excel spreadsheets. Accurate table extraction online for free.",
+    "featureList": "PDF to XLSX conversion, Table Extraction, Secure"
+  };
+
   return (
     <ToolModal title="PDF to Excel">
-      <Helmet>
-        <title>PDF to Excel - MarvelPDF</title>
-        <meta name="description" content="Extract data from PDFs into Excel spreadsheets with superhero accuracy." />
-      </Helmet>
+      <SEO 
+        title="PDF to Excel Converter - Export Data to XLSX" 
+        description="Convert PDF to Excel spreadsheets online for free. Extract tables and data from PDF to editable Excel (XLSX) files accurately."
+        keywords="pdf to excel, convert pdf to xlsx, pdf to sheet, extract pdf tables, data scraping pdf"
+        schema={jsonLd}
+      />
       
       <p className="text-gray-500 mb-6 text-center">
         Extact data tables into editable Excel sheets.

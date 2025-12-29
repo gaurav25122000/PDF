@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Helmet } from 'react-helmet-async';
+import { Helmet } from 'react-helmet-async'; // Can remove if unused, but SEO component handles it
+import SEO from '../components/SEO';
 import ToolModal from '../components/ToolModal';
 import FileUploader from '../components/FileUploader';
 import { File, Loader2, Download } from 'lucide-react';
@@ -56,13 +57,6 @@ const MergePDF = () => {
         setLoading(false);
     }
   };
-
-  return (
-    <ToolModal title="Merge PDF files">
-// ... imports
-import SEO from '../components/SEO';
-
-// ... component logic
 
   const jsonLd = {
     "@context": "https://schema.org",

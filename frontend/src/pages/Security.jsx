@@ -4,7 +4,15 @@ import { Link } from 'react-router-dom';
 import SEO from '../components/SEO';
 
 const SecurityFeature = ({ icon: Icon, title, description, color = "text-marvel-red", bg = "bg-marvel-red/10" }) => (
-// ...
+  <div className="bg-gray-50 p-6 rounded-2xl hover:bg-white hover:shadow-xl transition-all border border-transparent hover:border-gray-100 group">
+    <div className={`w-14 h-14 ${bg} rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
+      <Icon className={`w-8 h-8 ${color}`} />
+    </div>
+    <h3 className="font-heading text-xl mb-3 text-marvel-black">{title}</h3>
+    <p className="text-gray-500 leading-relaxed text-sm">
+      {description}
+    </p>
+  </div>
 );
 
 const Security = () => {

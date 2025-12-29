@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Helmet } from 'react-helmet-async';
 import ToolModal from '../components/ToolModal';
+import SEO from '../components/SEO';
 import FileUploader from '../components/FileUploader';
 import { File, Loader2, PenTool, ShieldCheck } from 'lucide-react';
 import axios from 'axios';
@@ -171,12 +172,29 @@ const SignPDF = () => {
     }
   };
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Sign PDF - MarvelPDF",
+    "applicationCategory": "ProductivityApplication",
+    "operatingSystem": "Any",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "description": "Sign PDF documents online for free. Draw your signature or upload an image to sign PDFs.",
+    "featureList": "PDF Signing, Electronic Signature, Secure"
+  };
+
   return (
     <ToolModal title="Sign PDF">
-      <Helmet>
-        <title>Sign PDF - MarvelPDF</title>
-        <meta name="description" content="Sign your documents with the authority of a superhero." />
-      </Helmet>
+      <SEO 
+        title="Sign PDF - Free Online PDF Signer" 
+        description="Sign yourself or electronic signatures to PDF files online for free. Draw your signature or upload a signature image. Secure and legally binding."
+        keywords="sign pdf, e-sign pdf, electronic signature, free pdf signer, sign document online"
+        schema={jsonLd}
+      />
       
       <p className="text-gray-500 mb-6 text-center">
         Sign yourself or request electronic signatures.

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import ToolModal from '../components/ToolModal';
+import SEO from '../components/SEO';
 import FileUploader from '../components/FileUploader';
 import { File, Loader2, Download, FileText } from 'lucide-react';
 import axios from 'axios';
@@ -49,12 +50,29 @@ const WordToPdf = () => {
     }
   };
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Word to PDF - MarvelPDF",
+    "applicationCategory": "ProductivityApplication",
+    "operatingSystem": "Any",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "description": "Convert Word documents to PDF online for free. Make DOC and DOCX files easy to read by converting them to PDF.",
+    "featureList": "Word to PDF conversion, DOCX support, Secure"
+  };
+
   return (
     <ToolModal title="Word to PDF">
-      <Helmet>
-        <title>Word to PDF - MarvelPDF</title>
-        <meta name="description" content="Convert your DOC and DOCX files into PDFs instantly." />
-      </Helmet>
+      <SEO 
+        title="Word to PDF Converter - Free Online Tool" 
+        description="Make DOC and DOCX files easy to read by converting them to PDF online for free. Convert Word documents to PDF instantly."
+        keywords="word to pdf, convert doc to pdf, docx to pdf, free word to pdf converter, document converter"
+        schema={jsonLd}
+      />
       
       <p className="text-gray-500 mb-6 text-center">
         Solidify your Word documents into immutable PDFs.

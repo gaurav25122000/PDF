@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import ToolModal from '../components/ToolModal';
+import SEO from '../components/SEO';
 import FileUploader from '../components/FileUploader';
 import { File, Loader2, Download, Image } from 'lucide-react';
 import axios from 'axios';
@@ -56,12 +57,29 @@ const JpgToPdf = () => {
     }
   };
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "JPG to PDF - MarvelPDF",
+    "applicationCategory": "ProductivityApplication",
+    "operatingSystem": "Any",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "description": "Convert JPG images to PDF documents online for free. Merge multiple images into a single PDF.",
+    "featureList": "Image to PDF conversion, Merge Images, Secure"
+  };
+
   return (
     <ToolModal title="JPG to PDF">
-      <Helmet>
-        <title>JPG to PDF - MarvelPDF</title>
-        <meta name="description" content="Convert JPG images to PDF in seconds. Easily adjust orientation and margins." />
-      </Helmet>
+      <SEO 
+        title="JPG to PDF Converter - Free Online Tool" 
+        description="Convert JPG images to PDF in seconds. Merge multiple images into one PDF document online. Easy, fast, and free."
+        keywords="jpg to pdf, image to pdf, convert jpg to pdf, combine images to pdf, free jpg to pdf converter"
+        schema={jsonLd}
+      />
       
       <p className="text-gray-500 mb-6 text-center">
         Turn your images into a single, polished PDF.

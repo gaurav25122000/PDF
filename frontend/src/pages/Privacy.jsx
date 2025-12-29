@@ -4,7 +4,13 @@ import { Link } from 'react-router-dom';
 import SEO from '../components/SEO';
 
 const SectionLink = ({ href, children, icon: Icon }) => (
-// ...
+  <a 
+    href={href} 
+    className="flex items-center gap-3 p-3 rounded-xl text-gray-500 hover:bg-gray-100 hover:text-marvel-red transition-all group font-medium"
+  >
+    <Icon size={18} className="group-hover:scale-110 transition-transform" />
+    {children}
+  </a>
 );
 
 const Privacy = () => {

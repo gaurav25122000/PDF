@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Helmet } from 'react-helmet-async';
 import ToolModal from '../components/ToolModal';
+import SEO from '../components/SEO';
 import FileUploader from '../components/FileUploader';
 import { File, Loader2, Edit3, Type, Image as ImageIcon, Download, Square } from 'lucide-react';
 import axios from 'axios';
@@ -206,12 +207,29 @@ const EditPDF = () => {
     }
   };
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Edit PDF - MarvelPDF",
+    "applicationCategory": "ProductivityApplication",
+    "operatingSystem": "Any",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "description": "Edit your PDF files online for free. Add text, images, shapes, and annotations easily.",
+    "featureList": "PDF Editor, Add Text, Draw, Annotate"
+  };
+
   return (
     <ToolModal title="Edit PDF">
-      <Helmet>
-        <title>Edit PDF - MarvelPDF</title>
-        <meta name="description" content="Edit your PDFs with superhero precision. Add text, shapes, and more." />
-      </Helmet>
+      <SEO 
+        title="Edit PDF - Free Online PDF Editor" 
+        description="Add text, shapes, comments and highlights to a PDF file online for free. Edit PDF documents easily without installation. Secure and fast."
+        keywords="edit pdf, pdf editor, online pdf editor, free pdf editor, annotate pdf"
+        schema={jsonLd}
+      />
       
       <p className="text-gray-500 mb-6 text-center">
         Add text, shapes, comments and highlights to a PDF file.

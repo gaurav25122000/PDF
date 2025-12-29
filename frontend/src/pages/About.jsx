@@ -1,14 +1,21 @@
 import React from 'react';
-import { Helmet } from 'react-helmet-async';
+import SEO from '../components/SEO';
+import { Link } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 
 const About = () => {
   return (
-    <div className="min-h-screen bg-white text-gray-800 pt-24 pb-12 px-4 sm:px-6 lg:px-8 absolute inset-0 z-40 overflow-y-auto">
-      <Helmet>
-        <title>About Us - MarvelPDF</title>
-      </Helmet>
+    <div className="min-h-screen bg-white text-gray-800 pt-20 pb-12 px-4 sm:px-6 lg:px-8 absolute inset-0 z-40 overflow-y-auto">
+      <SEO 
+        title="About Us - MarvelPDF Mission" 
+        description="Learn about the MarvelPDF mission. We are dedicated to making PDF tools accessible, fast, and beautiful for everyone."
+        keywords="about marvelpdf, pdf tools mission, free pdf software team"
+      />
       
       <div className="max-w-4xl mx-auto">
+        <Link to="/" className="inline-flex items-center gap-2 text-gray-500 hover:text-marvel-black transition-colors font-bold mb-8">
+            <ArrowLeft size={20} /> Back to Tools
+        </Link>
         <div className="text-center mb-16">
              <h1 className="text-5xl font-heading text-marvel-black mb-6">Our Mission</h1>
              <p className="text-xl text-gray-600 max-w-2xl mx-auto">

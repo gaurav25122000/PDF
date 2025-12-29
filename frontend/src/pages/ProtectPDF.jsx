@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import ToolModal from '../components/ToolModal';
+import SEO from '../components/SEO';
 import FileUploader from '../components/FileUploader';
 import { File, Loader2, Download, ShieldCheck } from 'lucide-react';
 import axios from 'axios';
@@ -51,12 +52,29 @@ const ProtectPDF = () => {
     }
   };
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Protect PDF - MarvelPDF",
+    "applicationCategory": "ProductivityApplication",
+    "operatingSystem": "Any",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "description": "Protect PDF files with strong passwords online for free. Encrypt your documents securely.",
+    "featureList": "PDF Encryption, Password Protection, Secure"
+  };
+
   return (
     <ToolModal title="Protect PDF file">
-      <Helmet>
-        <title>Protect PDF - MarvelPDF</title>
-        <meta name="description" content="Encrypt your PDF file with a password to prevent unauthorized access." />
-      </Helmet>
+      <SEO 
+        title="Protect PDF - Encrypt PDF with Password" 
+        description="Encrypt your PDF file with a password to prevent unauthorized access. Protect PDF documents online for free. Secure banking-level encryption."
+        keywords="protect pdf, encrypt pdf, password protect pdf, secure pdf, lock pdf"
+        schema={jsonLd}
+      />
       
       <p className="text-gray-500 mb-6 text-center">
         Lock your PDF with a superhero-strength password.
