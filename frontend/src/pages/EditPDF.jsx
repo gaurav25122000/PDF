@@ -1,0 +1,306 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { Helmet } from 'react-helmet-async';
+import ToolModal from '../components/ToolModal';
+import FileUploader from '../components/FileUploader';
+import { File, Loader2, Edit3, Type, Image as ImageIcon, Download, Square } from 'lucide-react';
+import axios from 'axios';
+import * as pdfjsLib from 'pdfjs-dist';
+import * as fabric from 'fabric';
+
+// Configure PDF.js worker
+// Using CDN for worker to avoid build complexity with vite for now
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+
+const EditPDF = () => {
+  const [file, setFile] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [processing, setProcessing] = useState(false);
+  const [error, setError] = useState(null);
+  
+  const canvasRef = useRef(null);
+  const fabricCanvasRef = useRef(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [numPages, setNumPages] = useState(0);
+  const [pdfDoc, setPdfDoc] = useState(null);
+  const [tool, setTool] = useState('text'); // text, draw
+  const [color, setColor] = useState('#000000');
+
+  const handleFiles = (fileList) => {
+    if (fileList.length > 0) {
+        setFile(fileList[0]);
+        setError(null);
+        loadPDF(fileList[0]);
+    }
+  };
+
+  const loadPDF = async (pdfFile) => {
+      setLoading(true);
+      try {
+          const arrayBuffer = await pdfFile.arrayBuffer();
+          const loadedPdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+          setPdfDoc(loadedPdf);
+          setNumPages(loadedPdf.numPages);
+          renderPage(loadedPdf, 1);
+      } catch (err) {
+          console.error("Error loading PDF:", err);
+          setError("Failed to load PDF.");
+      } finally {
+          setLoading(false);
+      }
+  };
+
+  const renderPage = async (pdf, pageNum) => {
+    if (!canvasRef.current) return;
+    
+    try {
+        const page = await pdf.getPage(pageNum);
+        const viewport = page.getViewport({ scale: 1.5 });
+        const canvas = canvasRef.current;
+        const context = canvas.getContext('2d');
+        
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+
+        await page.render({ canvasContext: context, viewport: viewport }).promise;
+
+        const bgImage = canvas.toDataURL("image/png");
+        
+        if (!fabricCanvasRef.current) {
+            const fCanvas = new fabric.Canvas('fabric-canvas', {
+                height: viewport.height,
+                width: viewport.width,
+            });
+            fabricCanvasRef.current = fCanvas;
+            
+            // Set background
+            fabric.Image.fromURL(bgImage, (img) => {
+                fCanvas.setBackgroundImage(img, fCanvas.renderAll.bind(fCanvas), {
+                    scaleX: fCanvas.width / img.width,
+                    scaleY: fCanvas.height / img.height
+                });
+            });
+        } else {
+             const fCanvas = fabricCanvasRef.current;
+             fCanvas.clear();
+             fCanvas.setDimensions({ width: viewport.width, height: viewport.height });
+             fabric.Image.fromURL(bgImage, (img) => {
+                fCanvas.setBackgroundImage(img, fCanvas.renderAll.bind(fCanvas), {
+                    scaleX: fCanvas.width / img.width,
+                    scaleY: fCanvas.height / img.height
+                });
+            });
+        }
+    } catch (err) {
+        console.error("Render Page Error:", err);
+    }
+  };
+
+  // Tool handling
+  useEffect(() => {
+      if (!fabricCanvasRef.current) return;
+      const canvas = fabricCanvasRef.current;
+      
+      canvas.isDrawingMode = (tool === 'draw');
+      if (tool === 'draw') {
+          canvas.freeDrawingBrush.width = 5;
+          canvas.freeDrawingBrush.color = color;
+      }
+      
+      // If tool is text, we add text on click or just add a text box immediately?
+      // For simplicity, let's just add a text box when clicking the tool if needed, 
+      // or button "Add Text"
+  }, [tool, color]);
+
+  const addText = () => {
+    if (fabricCanvasRef.current) {
+        const text = new fabric.IText('Type here', {
+            left: 100,
+            top: 100,
+            fontFamily: 'Helvetica',
+            fill: color,
+            fontSize: 24
+        });
+        fabricCanvasRef.current.add(text);
+        fabricCanvasRef.current.setActiveObject(text);
+        setTool('select'); // Switch back to select/move
+    }
+  };
+  
+  const savePdf = async () => {
+    if (!file || !fabricCanvasRef.current) return;
+    setProcessing(true);
+    
+    // Collect objects
+    const objects = fabricCanvasRef.current.getObjects();
+    const ops = objects.map(obj => {
+        // Convert Fabric object to JSON op
+        let op = {
+            page: currentPage - 1, // 0-indexed for backend
+            x: obj.left / 1.5,
+            y: obj.top / 1.5,
+        };
+        
+        if (obj.type === 'i-text' || obj.type === 'text') {
+            op.type = 'text';
+            op.text = obj.text;
+            op.fontSize = obj.fontSize / 1.5 * obj.scaleY; // Approximating scale
+            op.color = obj.fill;
+        } else if (obj.type === 'image') {
+            op.type = 'image';
+            op.data = obj.getSrc(); 
+            op.width = (obj.width * obj.scaleX) / 1.5;
+            op.height = (obj.height * obj.scaleY) / 1.5;
+        } else if (obj.type === 'path') {
+            // Drawings are paths. Converting path to image for backend simplicity v1
+             // This is tricky. Let's skip paths for JSON ops for now OR 
+             // Ideally implementing "flattening" on frontend by exporting canvas as image
+             // But we want to keep original text searchable?
+             // If we just want visually correct PDF, we can use the "Overlay Image" strategy
+             // for the WHOLE page edits.
+        }
+        return op;
+    });
+
+    // Strategy 2: Export entire fabric canvas (without background) as a transparent image
+    // and overlay it on the PDF page. This handles drawings, text, everything visually perfect.
+    // Disadvantage: Text added is not "real text" in PDF (not selectable).
+    // But for an MVP "Edit PDF" tool, this is robust.
+    
+    const originalBg = fabricCanvasRef.current.backgroundImage;
+    fabricCanvasRef.current.backgroundImage = null;
+    const overlayData = fabricCanvasRef.current.toDataURL({ format: 'png', multiplier: 2 });
+    fabricCanvasRef.current.backgroundImage = originalBg; 
+    
+    const op = {
+        page: currentPage - 1,
+        type: "image",
+        data: overlayData,
+        x: 0,
+        y: 0,
+        width: fabricCanvasRef.current.width / 1.5,
+        height: fabricCanvasRef.current.height / 1.5
+    };
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("operations", JSON.stringify([op])); // Only current page for now
+
+    try {
+        const response = await axios.post('/api/process/edit', formData, {
+            responseType: 'blob',
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
+
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', 'edited.pdf');
+        document.body.appendChild(link);
+        link.click();
+        link.parentNode.removeChild(link);
+    } catch (err) {
+        console.error("Edit PDF Error:", err);
+        setError("Failed to save edited PDF.");
+    } finally {
+        setProcessing(false);
+    }
+  };
+
+  return (
+    <ToolModal title="Edit PDF">
+      <Helmet>
+        <title>Edit PDF - MarvelPDF</title>
+        <meta name="description" content="Edit your PDFs with superhero precision. Add text, shapes, and more." />
+      </Helmet>
+      
+      <p className="text-gray-500 mb-6 text-center">
+        Add text, shapes, comments and highlights to a PDF file.
+      </p>
+
+        {!file ? (
+            <div className="w-full">
+                <FileUploader onFilesSelected={handleFiles} multiple={false} accept=".pdf" />
+            </div>
+        ) : (
+            <div className="w-full h-full flex flex-col">
+                {/* Toolbar */}
+                 <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200 mb-4 flex flex-wrap items-center justify-between gap-4">
+                    <div className="flex items-center gap-2">
+                         <div className="flex bg-gray-100 p-1 rounded-lg">
+                            <button 
+                                onClick={addText} 
+                                className={`p-2 rounded-md flex items-center gap-1 transition ${tool === 'text' ? 'bg-white shadow-sm text-purple-600' : 'text-gray-600 hover:bg-gray-200'}`}
+                                title="Add Text"
+                            >
+                                <Type className="w-5 h-5" />
+                            </button>
+                            <button 
+                                onClick={() => setTool('draw')} 
+                                className={`p-2 rounded-md flex items-center gap-1 transition ${tool === 'draw' ? 'bg-white shadow-sm text-purple-600' : 'text-gray-600 hover:bg-gray-200'}`}
+                                title="Free Draw"
+                            >
+                                <Edit3 className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                         <div className="h-8 w-px bg-gray-300 mx-2"></div>
+
+                        <div className="flex gap-1">
+                            {['#000000', '#EC1D24', '#2563EB', '#16A34A', '#F59E0B'].map(c => (
+                                <button 
+                                    key={c}
+                                    onClick={() => setColor(c)}
+                                    className={`w-6 h-6 rounded-full border-2 transition ${color === c ? 'border-gray-900 scale-110' : 'border-transparent hover:scale-110'}`}
+                                    style={{ backgroundColor: c }}
+                                    title={c}
+                                />
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                        <button 
+                            onClick={savePdf}
+                            disabled={processing}
+                            className={`bg-purple-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-purple-700 transition shadow-md flex items-center gap-2
+                                ${processing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                            {processing ? <Loader2 className="animate-spin w-4 h-4" /> : <Download className="w-4 h-4" />}
+                            Save PDF
+                        </button>
+                         <button 
+                            onClick={() => setFile(null)}
+                            className="text-gray-400 hover:text-marvel-red p-2"
+                        >
+                            ✕
+                        </button>
+                    </div>
+                 </div>
+
+                 {error && (
+                    <div className="mb-4 text-marvel-red font-medium text-center">
+                        {error}
+                    </div>
+                 )}
+
+                {/* Canvas Area */}
+                <div className="flex-1 bg-gray-100 rounded-xl overflow-auto p-8 flex justify-center items-start border border-gray-200 min-h-0">
+                    <div className="relative shadow-xl border bg-white">
+                        {/* Hidden canvas for PDFjs render */}
+                        <canvas ref={canvasRef} style={{ display: 'none' }} />
+                        <canvas id="fabric-canvas" className="bg-white" />
+                        {loading && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10">
+                                <Loader2 className="animate-spin w-10 h-10 text-purple-600" />
+                            </div>
+                        )}
+                    </div>
+                </div>
+                
+            </div>
+        )}
+    </ToolModal>
+  );
+};
+
+export default EditPDF;

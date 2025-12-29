@@ -1,0 +1,131 @@
+import React, { useState } from 'react';
+import { Helmet } from 'react-helmet-async';
+import ToolModal from '../components/ToolModal';
+import FileUploader from '../components/FileUploader';
+import { File, Loader2, RotateCw } from 'lucide-react';
+import axios from 'axios';
+
+const RotatePDF = () => {
+  const [file, setFile] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [rotation, setRotation] = useState(90);
+
+  const handleFiles = (fileList) => {
+    if (fileList.length > 0) {
+        setFile(fileList[0]);
+        setError(null);
+    }
+  };
+
+  const processFile = async () => {
+    if (!file) return;
+
+    setLoading(true);
+    setError(null);
+
+    const formData = new FormData();
+    formData.append("file", file);
+    // Backend expects 'angle' as query param
+    
+    try {
+        const response = await axios.post(`/api/process/rotate?angle=${rotation}`, formData, {
+            responseType: 'blob',
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
+
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', 'rotated.pdf');
+        document.body.appendChild(link);
+        link.click();
+        link.parentNode.removeChild(link);
+    } catch (err) {
+        console.error("Rotate error:", err);
+        setError("Failed to rotate PDF.");
+    } finally {
+        setLoading(false);
+    }
+  };
+
+  return (
+    <ToolModal title="Rotate PDF file">
+      <Helmet>
+        <title>Rotate PDF - MarvelPDF</title>
+        <meta name="description" content="Rotate your PDF files. The best online tool to orient your documents correctly." />
+      </Helmet>
+      
+      <p className="text-gray-500 mb-6 text-center">
+        Rotate PDF pages. Left, right, or upside down.
+      </p>
+
+      {!file ? (
+        <div className="w-full">
+            <FileUploader onFilesSelected={handleFiles} multiple={false} accept=".pdf" />
+        </div>
+      ) : (
+        <div className="w-full max-w-lg mx-auto">
+             <div className="flex flex-col items-center justify-center p-6 bg-gray-50 border rounded-xl mb-6 relative group">
+                <File className="w-16 h-16 text-blue-500 mb-2" />
+                <span className="font-medium text-gray-700">{file.name}</span>
+                <button 
+                    onClick={() => setFile(null)}
+                    className="absolute top-2 right-2 text-gray-400 hover:text-blue-500 p-1"
+                >
+                    ✕
+                </button>
+            </div>
+             
+             <div className="mb-6 text-center">
+                <label className="block text-gray-700 font-bold mb-3">Rotation Angle:</label>
+                 <div className="flex justify-center gap-3">
+                    {[90, 180, 270].map((angle) => (
+                        <button
+                            key={angle}
+                            onClick={() => setRotation(angle)}
+                            className={`py-3 px-6 rounded-xl font-medium transition shadow-sm border-2 ${
+                                rotation === angle 
+                                ? 'bg-blue-100 border-blue-500 text-blue-700' 
+                                : 'bg-white border-transparent hover:bg-gray-50 text-gray-600'
+                            }`}
+                        >
+                            {angle}°
+                        </button>
+                    ))}
+                 </div>
+             </div>
+             
+            {error && (
+                <div className="mb-4 text-marvel-red font-medium text-center">
+                    {error}
+                </div>
+            )}
+
+            <div className="text-center sticky bottom-0 bg-white pt-2">
+                <button 
+                    onClick={processFile}
+                    disabled={loading}
+                    className={`bg-blue-600 text-white text-xl font-bold py-4 px-10 rounded-xl hover:bg-blue-700 transition shadow-lg flex items-center justify-center mx-auto gap-2 w-full
+                        ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                    {loading ? (
+                        <>
+                            <Loader2 className="animate-spin" /> Rotating...
+                        </>
+                    ) : (
+                        <>
+                            Rotate PDF <RotateCw className="w-5 h-5 ml-2" />
+                        </>
+                    )}
+                </button>
+            </div>
+        </div>
+      )}
+    </ToolModal>
+  );
+};
+
+export default RotatePDF;
