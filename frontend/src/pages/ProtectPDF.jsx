@@ -33,7 +33,9 @@ const ProtectPDF = () => {
         });
         const { uploadUrl, key } = uploadConfigRes.data;
         
-        await axios.put(uploadUrl, file, {
+        await fetch(uploadUrl, {
+             method: 'PUT',
+             body: file,
              headers: { 'Content-Type': file.type }
         });
 

@@ -42,7 +42,9 @@ const MergePDF = () => {
              const { uploadUrl, key } = uploadConfigRes.data;
              
              // Upload to S3
-             await axios.put(uploadUrl, file, {
+             await fetch(uploadUrl, {
+                 method: 'PUT',
+                 body: file,
                  headers: { 'Content-Type': file.type }
              });
              
