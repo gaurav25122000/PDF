@@ -64,6 +64,7 @@ const EditPDF = () => {
 
         await page.render({ canvasContext: context, viewport: viewport }).promise;
 
+        // Ensure we get data URL correctly
         const bgImage = canvas.toDataURL("image/png");
         
         if (!fabricCanvasRef.current) {
@@ -73,20 +74,33 @@ const EditPDF = () => {
             });
             fabricCanvasRef.current = fCanvas;
             
-            // Set background (Fabric v6+)
             try {
+                // Add as an image object instead of background for better compatibility
                 const img = await fabric.FabricImage.fromURL(bgImage);
-                fCanvas.backgroundImage = img;
-                fCanvas.backgroundImage.scaleX = fCanvas.width / img.width;
-                fCanvas.backgroundImage.scaleY = fCanvas.height / img.height;
+                img.set({
+                    left: 0,
+                    top: 0,
+                    selectable: false,
+                    evented: false,
+                    scaleX: fCanvas.width / img.width,
+                    scaleY: fCanvas.height / img.height
+                });
+                fCanvas.add(img);
+                fCanvas.sendToBack(img);
                 fCanvas.requestRenderAll();
             } catch (err) {
-                 // Fallback if FabricImage is not available (older versions or different export)
                  try {
                      const img = await fabric.Image.fromURL(bgImage);
-                     fCanvas.backgroundImage = img;
-                     fCanvas.backgroundImage.scaleX = fCanvas.width / img.width;
-                     fCanvas.backgroundImage.scaleY = fCanvas.height / img.height;
+                     img.set({
+                        left: 0,
+                        top: 0,
+                        selectable: false,
+                        evented: false,
+                        scaleX: fCanvas.width / img.width,
+                        scaleY: fCanvas.height / img.height
+                    });
+                     fCanvas.add(img);
+                     fCanvas.sendToBack(img);
                      fCanvas.requestRenderAll();
                  } catch (e) {
                      console.error("Fabric Image Error:", e);
@@ -99,16 +113,30 @@ const EditPDF = () => {
              
              try {
                 const img = await fabric.FabricImage.fromURL(bgImage);
-                fCanvas.backgroundImage = img;
-                fCanvas.backgroundImage.scaleX = fCanvas.width / img.width;
-                fCanvas.backgroundImage.scaleY = fCanvas.height / img.height;
+                img.set({
+                    left: 0,
+                    top: 0,
+                    selectable: false,
+                    evented: false,
+                    scaleX: fCanvas.width / img.width,
+                    scaleY: fCanvas.height / img.height
+                });
+                fCanvas.add(img);
+                fCanvas.sendToBack(img);
                 fCanvas.requestRenderAll();
              } catch (err) {
                  try {
                      const img = await fabric.Image.fromURL(bgImage);
-                     fCanvas.backgroundImage = img;
-                     fCanvas.backgroundImage.scaleX = fCanvas.width / img.width;
-                     fCanvas.backgroundImage.scaleY = fCanvas.height / img.height;
+                     img.set({
+                        left: 0,
+                        top: 0,
+                        selectable: false,
+                        evented: false,
+                        scaleX: fCanvas.width / img.width,
+                        scaleY: fCanvas.height / img.height
+                    });
+                     fCanvas.add(img);
+                     fCanvas.sendToBack(img);
                      fCanvas.requestRenderAll();
                  } catch (e) {
                       console.error("Fabric Image Error loop:", e);
@@ -117,6 +145,7 @@ const EditPDF = () => {
         }
     } catch (err) {
         console.error("Render Page Error:", err);
+        setError("Failed to render page.");
     }
   };
 
@@ -322,7 +351,7 @@ const EditPDF = () => {
                 <div className="flex-1 bg-gray-100 rounded-xl overflow-auto p-8 flex justify-center items-start border border-gray-200 min-h-0">
                     <div className="relative shadow-xl border bg-white">
                         {/* Hidden canvas for PDFjs render */}
-                        <canvas ref={canvasRef} style={{ display: 'none' }} />
+                        <canvas ref={canvasRef} style={{ position: 'absolute', visibility: 'hidden', pointerEvents: 'none' }} />
                         <canvas id="fabric-canvas" className="bg-white" />
                         {loading && (
                             <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10">
