@@ -35,6 +35,7 @@ const Footer = () => {
             </ul>
           </div>
 
+          <div>
              <h3 className="text-white font-bold uppercase tracking-wider mb-4">Support</h3>
              <ul className="space-y-2 text-sm">
                 <li><Link to="/contact" className="hover:text-marvel-red transition-colors">Contact Us</Link></li>
