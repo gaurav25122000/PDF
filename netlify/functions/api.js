@@ -36,10 +36,26 @@ app.use('/.netlify/functions/api', router);
 app.use('/api', router);
 app.use('/', router); 
 
+import { getUploadUrl, getDownloadUrl, downloadToBuffer, uploadBuffer } from './s3.js';
+import { v4 as uuidv4 } from 'uuid'; // Try standard import or use crypto.randomUUID
+
 // Configure multer for memory storage
 const upload = multer({ 
    storage: multer.memoryStorage(),
-   limits: { fileSize: 500 * 1024 * 1024 } // 500MB limit per file
+   limits: { fileSize: 500 * 1024 * 1024 } // 500MB limit per file (Still useful for small files or local dev)
+});
+
+// S3 Routes
+router.post('/s3/upload-url', async (req, res) => {
+    try {
+        const { filename, contentType } = req.body;
+        const key = `uploads/${Date.now()}_${uuidv4()}_${filename}`; // sanitized unique key
+        const uploadUrl = await getUploadUrl(key, contentType);
+        res.json({ uploadUrl, key });
+    } catch (e) {
+        console.error("S3 Upload URL Error:", e);
+        res.status(500).json({ error: "Failed to get upload URL" });
+    }
 });
 
 
@@ -299,49 +315,54 @@ router.get('/health', (req, res) => {
 });
 
 // MERGE PDF
-router.post('/process/merge', upload.array('files'), async (req, res) => {
+router.post('/process/merge', express.json(), async (req, res) => {
     try {
-        if (!req.files || req.files.length < 2) {
-            return res.status(400).send("At least 2 files are required.");
+        const { keys } = req.body;
+        if (!keys || keys.length < 2) {
+            return res.status(400).json({ error: "At least 2 files are required." });
         }
 
         const mergedPdf = await PDFDocument.create();
 
-        for (const file of req.files) {
-            const pdf = await PDFDocument.load(file.buffer);
+        for (const key of keys) {
+            const buffer = await downloadToBuffer(key);
+            const pdf = await PDFDocument.load(buffer);
             const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
             copiedPages.forEach((page) => mergedPdf.addPage(page));
         }
 
         const pdfBytes = await mergedPdf.save();
         
-        await logUsage(req, 'Merge PDF'); // LOG USAGE ON SUCCESS
+        // Upload result to S3
+        const resultKey = `results/${Date.now()}_${uuidv4()}_merged.pdf`;
+        await uploadBuffer(resultKey, Buffer.from(pdfBytes), 'application/pdf');
+        
+        await logUsage(req, 'Merge PDF');
 
-        res.set({
-            'Content-Type': 'application/pdf',
-            'Content-Disposition': 'attachment; filename=merged.pdf',
-            'Content-Length': pdfBytes.length,
-        });
-        res.send(Buffer.from(pdfBytes));
+        // Generate download URL
+        const downloadUrl = await getDownloadUrl(resultKey);
+        res.json({ downloadUrl });
 
     } catch (error) {
         console.error("Merge Error:", error);
-        res.status(500).send("Failed to merge PDFs.");
+        res.status(500).json({ error: "Failed to merge PDFs." });
     }
 });
 
 // SPLIT PDF
-router.post('/process/split', upload.single('file'), async (req, res) => {
+router.post('/process/split', express.json(), async (req, res) => {
     try {
-        if (!req.file || !req.body.range) {
-            return res.status(400).send("File and range are required.");
+        const { key, range } = req.body;
+        if (!key || !range) {
+            return res.status(400).json({ error: "File and range are required." });
         }
 
-        const srcDoc = await PDFDocument.load(req.file.buffer);
-        const pageIndices = parsePageRanges(req.body.range, srcDoc.getPageCount());
+        const buffer = await downloadToBuffer(key);
+        const srcDoc = await PDFDocument.load(buffer);
+        const pageIndices = parsePageRanges(range, srcDoc.getPageCount());
 
         if (pageIndices.length === 0) {
-            return res.status(400).send("Invalid page range.");
+            return res.status(400).json({ error: "Invalid page range." });
         }
         
         const subPdf = await PDFDocument.create();
@@ -351,33 +372,42 @@ router.post('/process/split', upload.single('file'), async (req, res) => {
 
         // Create Zip
         const archive = archiver('zip');
+        const chunks = [];
+        archive.on('data', chunk => chunks.push(chunk));
         
-        await logUsage(req, 'Split PDF'); // LOG USAGE
-
-        res.set({
-            'Content-Type': 'application/zip',
-            'Content-Disposition': 'attachment; filename=split.zip'
-        });
-
-        archive.pipe(res);
         archive.append(Buffer.from(subPdfBytes), { name: 'extracted.pdf' });
         await archive.finalize();
+        
+        // Wait for zip to finish
+        await new Promise(resolve => archive.on('end', resolve));
+        const zipBuffer = Buffer.concat(chunks);
+
+        // Upload Result
+        const resultKey = `results/${Date.now()}_${uuidv4()}_split.zip`;
+        await uploadBuffer(resultKey, zipBuffer, 'application/zip');
+        
+        await logUsage(req, 'Split PDF'); 
+
+        const downloadUrl = await getDownloadUrl(resultKey);
+        res.json({ downloadUrl });
 
     } catch (error) {
         console.error("Split Error:", error);
-        res.status(500).send("Failed to split PDF.");
+        res.status(500).json({ error: "Failed to split PDF." });
     }
 });
 
 // PROTECT PDF
-router.post('/process/protect', upload.single('file'), async (req, res) => {
+router.post('/process/protect', express.json(), async (req, res) => {
     try {
-        if (!req.file || !req.body.password) return res.status(400).send("File and password required.");
+        const { key, password } = req.body;
+        if (!key || !password) return res.status(400).json({ error: "File and password required." });
         
-        const pdfDoc = await PDFDocument.load(req.file.buffer);
+        const buffer = await downloadToBuffer(key);
+        const pdfDoc = await PDFDocument.load(buffer);
         pdfDoc.encrypt({
-            userPassword: req.body.password,
-            ownerPassword: req.body.password,
+            userPassword: password,
+            ownerPassword: password,
             permissions: {
                 printing: 'highResolution',
                 modifying: false,
@@ -388,84 +418,90 @@ router.post('/process/protect', upload.single('file'), async (req, res) => {
 
         const pdfBytes = await pdfDoc.save();
         
-        await logUsage(req, 'Protect PDF'); // LOG USAGE
+        const resultKey = `results/${Date.now()}_${uuidv4()}_protected.pdf`;
+        await uploadBuffer(resultKey, Buffer.from(pdfBytes), 'application/pdf');
+
+        await logUsage(req, 'Protect PDF'); 
         
-        res.set({
-            'Content-Type': 'application/pdf',
-            'Content-Disposition': 'attachment; filename=protected.pdf',
-        });
-        res.send(Buffer.from(pdfBytes));
+        const downloadUrl = await getDownloadUrl(resultKey);
+        res.json({ downloadUrl });
     } catch (e) {
         console.error(e);
-        res.status(500).send("Failed.");
+        res.status(500).json({ error: "Failed." });
     }
 });
 
 // UNLOCK PDF
-router.post('/process/unlock', upload.single('file'), async (req, res) => {
+router.post('/process/unlock', express.json(), async (req, res) => {
     try {
-        if (!req.file || !req.body.password) return res.status(400).send("File and password required.");
+        const { key, password } = req.body;
+        if (!key || !password) return res.status(400).json({ error: "File and password required." });
         
+        const buffer = await downloadToBuffer(key);
         // Attempt load with password
-        const pdfDoc = await PDFDocument.load(req.file.buffer, { password: req.body.password });
+        const pdfDoc = await PDFDocument.load(buffer, { password });
         
         // Save without changes = removes encryption
         const pdfBytes = await pdfDoc.save();
         
+        const resultKey = `results/${Date.now()}_${uuidv4()}_unlocked.pdf`;
+        await uploadBuffer(resultKey, Buffer.from(pdfBytes), 'application/pdf');
+
         await logUsage(req, 'Unlock PDF');
         
-        res.set({
-            'Content-Type': 'application/pdf',
-            'Content-Disposition': 'attachment; filename=unlocked.pdf',
-        });
-        res.send(Buffer.from(pdfBytes));
+        const downloadUrl = await getDownloadUrl(resultKey);
+        res.json({ downloadUrl });
     } catch (e) {
         console.error(e);
-        res.status(403).send("Failed to unlock. Wrong password?");
+        res.status(403).json({ error: "Failed to unlock. Wrong password?" });
     }
 });
 
 // COMPRESS PDF
-router.post('/process/compress', upload.single('file'), async (req, res) => {
+router.post('/process/compress', express.json(), async (req, res) => {
     try {
-        if (!req.file) return res.status(400).send("File required.");
+        const { key } = req.body;
+        if (!key) return res.status(400).json({ error: "File required." });
         
-        const pdfDoc = await PDFDocument.load(req.file.buffer);
+        const buffer = await downloadToBuffer(key);
+        const pdfDoc = await PDFDocument.load(buffer);
         const compressedPdf = await PDFDocument.create();
         const copiedPages = await compressedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
         copiedPages.forEach(p => compressedPdf.addPage(p));
 
         const pdfBytes = await compressedPdf.save({ useObjectStreams: false }); 
 
+        const resultKey = `results/${Date.now()}_${uuidv4()}_compressed.pdf`;
+        await uploadBuffer(resultKey, Buffer.from(pdfBytes), 'application/pdf');
+
         await logUsage(req, 'Compress PDF');
 
-        res.set({
-            'Content-Type': 'application/pdf',
-            'Content-Disposition': 'attachment; filename=compressed.pdf',
-        });
-        res.send(Buffer.from(pdfBytes));
+        const downloadUrl = await getDownloadUrl(resultKey);
+        res.json({ downloadUrl });
     } catch (e) {
         console.error(e);
-        res.status(500).send("Failed.");
+        res.status(500).json({ error: "Failed." });
     }
 });
 
 // WATERMARK PDF
-router.post('/process/watermark', upload.single('file'), async (req, res) => {
+router.post('/process/watermark', express.json(), async (req, res) => {
     try {
-        if (!req.file) return res.status(400).send("File required.");
-        const text = req.query.text || "CONFIDENTIAL";
+        const { key, text } = req.body;
+        if (!key) return res.status(400).json({ error: "File required." });
+        const watermarkText = text || "CONFIDENTIAL";
         
-        const pdfDoc = await PDFDocument.load(req.file.buffer);
+        const buffer = await downloadToBuffer(key);
+        const pdfDoc = await PDFDocument.load(buffer);
         const pages = pdfDoc.getPages();
         const font = await pdfDoc.embedFont("Helvetica-Bold");
 
         pages.forEach(page => {
             const { width, height } = page.getSize();
             const fontSize = 50;
-            const textWidth = font.widthOfTextAtSize(text, fontSize);
+            const textWidth = font.widthOfTextAtSize(watermarkText, fontSize);
             
-            page.drawText(text, {
+            page.drawText(watermarkText, {
                 x: width / 2 - textWidth / 2,
                 y: height / 2,
                 size: fontSize,
@@ -476,25 +512,29 @@ router.post('/process/watermark', upload.single('file'), async (req, res) => {
         });
 
         const pdfBytes = await pdfDoc.save();
+        
+        const resultKey = `results/${Date.now()}_${uuidv4()}_watermarked.pdf`;
+        await uploadBuffer(resultKey, Buffer.from(pdfBytes), 'application/pdf');
+
         await logUsage(req, 'Watermark PDF');
-        res.set({
-            'Content-Type': 'application/pdf',
-            'Content-Disposition': 'attachment; filename=watermarked.pdf',
-        });
-        res.send(Buffer.from(pdfBytes));
+        
+        const downloadUrl = await getDownloadUrl(resultKey);
+        res.json({ downloadUrl });
     } catch (e) {
         console.error(e);
-        res.status(500).send("Failed.");
+        res.status(500).json({ error: "Failed." });
     }
 });
 
 // PAGE NUMBERS
-router.post('/process/page-numbers', upload.single('file'), async (req, res) => {
+router.post('/process/page-numbers', express.json(), async (req, res) => {
     try {
-        if (!req.file) return res.status(400).send("File required.");
-        const position = req.query.position || 'bottom';
+        const { key, position } = req.body;
+        if (!key) return res.status(400).json({ error: "File required." });
+        const pos = position || 'bottom';
         
-        const pdfDoc = await PDFDocument.load(req.file.buffer);
+        const buffer = await downloadToBuffer(key);
+        const pdfDoc = await PDFDocument.load(buffer);
         const pages = pdfDoc.getPages();
         const font = await pdfDoc.embedFont("Helvetica");
 
@@ -506,7 +546,7 @@ router.post('/process/page-numbers', upload.single('file'), async (req, res) => 
             
             let x = 0, y = 20;
 
-            switch(position) {
+            switch(pos) {
                 case 'top': x = width / 2 - textWidth / 2; y = height - 20; break;
                 case 'bottom-left': x = 20; y = 20; break;
                 case 'bottom-right': x = width - textWidth - 20; y = 20; break;
@@ -517,31 +557,44 @@ router.post('/process/page-numbers', upload.single('file'), async (req, res) => 
         });
 
         const pdfBytes = await pdfDoc.save();
+        
+        const resultKey = `results/${Date.now()}_${uuidv4()}_numbered.pdf`;
+        await uploadBuffer(resultKey, Buffer.from(pdfBytes), 'application/pdf');
+
         await logUsage(req, 'Page Numbers');
-        res.set({
-            'Content-Type': 'application/pdf',
-            'Content-Disposition': 'attachment; filename=numbered.pdf',
-        });
-        res.send(Buffer.from(pdfBytes));
+        
+        const downloadUrl = await getDownloadUrl(resultKey);
+        res.json({ downloadUrl });
     } catch (e) {
         console.error(e);
-        res.status(500).send("Failed.");
+        res.status(500).json({ error: "Failed." });
     }
 });
 
 // JPG TO PDF
-router.post('/process/jpg-to-pdf', upload.array('files'), async (req, res) => {
+router.post('/process/jpg-to-pdf', express.json(), async (req, res) => {
     try {
-        if (!req.files || req.files.length === 0) return res.status(400).send("Files required.");
+        const { keys } = req.body;
+        if (!keys || keys.length === 0) return res.status(400).json({ error: "Files required." });
         
         const pdfDoc = await PDFDocument.create();
         
-        for (const file of req.files) {
+        for (const key of keys) {
+            const buffer = await downloadToBuffer(key);
+            // Detect mime based on buffer or key? Ideally we pass metadata.
+            // But we can check magic bytes or assume from key extension or just try/catch format.
+            // Let's rely on magic bytes check or try both.
+            
             let image;
-            if (file.mimetype === 'image/png') {
-                 image = await pdfDoc.embedPng(file.buffer);
-            } else {
-                 image = await pdfDoc.embedJpg(file.buffer);
+            try {
+                image = await pdfDoc.embedJpg(buffer);
+            } catch (e) {
+                try {
+                     image = await pdfDoc.embedPng(buffer);
+                } catch (e2) {
+                     console.error("Not a JPG or PNG");
+                     continue; 
+                }
             }
             
             const page = pdfDoc.addPage([image.width, image.height]);
@@ -554,28 +607,33 @@ router.post('/process/jpg-to-pdf', upload.array('files'), async (req, res) => {
         }
 
         const pdfBytes = await pdfDoc.save();
-        await logUsage(req, 'Edit/Sign PDF');
-        res.set({
-            'Content-Type': 'application/pdf',
-            'Content-Disposition': 'attachment; filename=converted.pdf',
-        });
-        res.send(Buffer.from(pdfBytes));
+        
+        const resultKey = `results/${Date.now()}_${uuidv4()}_converted.pdf`;
+        await uploadBuffer(resultKey, Buffer.from(pdfBytes), 'application/pdf');
+
+        await logUsage(req, 'Jpg to PDF');
+        
+        const downloadUrl = await getDownloadUrl(resultKey);
+        res.json({ downloadUrl });
     } catch (e) {
         console.error(e);
-        res.status(500).send("Failed. Ensure images are JPG/PNG.");
+        res.status(500).json({ error: "Failed. Ensure images are JPG/PNG." });
     }
 });
 
 // EDIT / SIGN PDF
-router.post('/process/edit', upload.single('file'), async (req, res) => {
+router.post('/process/edit', express.json(), async (req, res) => {
     try {
-        if (!req.file || !req.body.operations) return res.status(400).send("File and ops required.");
+        const { key, operations } = req.body;
+        if (!key || !operations) return res.status(400).json({ error: "File and ops required." });
         
-        const operations = JSON.parse(req.body.operations);
-        const pdfDoc = await PDFDocument.load(req.file.buffer);
+        const ops = (typeof operations === 'string') ? JSON.parse(operations) : operations;
+        
+        const buffer = await downloadToBuffer(key);
+        const pdfDoc = await PDFDocument.load(buffer);
         const pages = pdfDoc.getPages();
 
-        for (const op of operations) {
+        for (const op of ops) {
             if (op.page >= pages.length) continue;
             const page = pages[op.page];
 
@@ -609,26 +667,31 @@ router.post('/process/edit', upload.single('file'), async (req, res) => {
         }
 
         const pdfBytes = await pdfDoc.save();
-        await logUsage(req);
-        res.set({
-            'Content-Type': 'application/pdf',
-            'Content-Disposition': 'attachment; filename=edited.pdf',
-        });
-        res.send(Buffer.from(pdfBytes));
+        
+        const resultKey = `results/${Date.now()}_${uuidv4()}_edited.pdf`;
+        await uploadBuffer(resultKey, Buffer.from(pdfBytes), 'application/pdf');
+
+        await logUsage(req, 'Edit PDF'); // or Sign
+
+        const downloadUrl = await getDownloadUrl(resultKey);
+        res.json({ downloadUrl });
 
     } catch (e) {
         console.error(e);
-        res.status(500).send("Failed to edit operations.");
+        res.status(500).json({ error: "Failed to edit operations." });
     }
 });
 
 // WORD TO PDF
-router.post('/process/word-to-pdf', upload.single('file'), async (req, res) => {
+router.post('/process/word-to-pdf', express.json(), async (req, res) => {
     try {
-         if (!req.file) return res.status(400).send("File required.");
+         const { key } = req.body;
+         if (!key) return res.status(400).json({ error: "File required." });
+         
+         const buffer = await downloadToBuffer(key);
          
          const { extractRawText } = await import('mammoth');
-         const result = await extractRawText({ buffer: req.file.buffer });
+         const result = await extractRawText({ buffer: buffer });
          const text = result.value;
 
          const pdfDoc = await PDFDocument.create();
@@ -655,26 +718,32 @@ router.post('/process/word-to-pdf', upload.single('file'), async (req, res) => {
          });
 
          const pdfBytes = await pdfDoc.save();
+         
+         const resultKey = `results/${Date.now()}_${uuidv4()}_word.pdf`;
+         await uploadBuffer(resultKey, Buffer.from(pdfBytes), 'application/pdf');
+
          await logUsage(req, 'Word to PDF');
-         res.set({
-            'Content-Type': 'application/pdf',
-            'Content-Disposition': 'attachment; filename=converted.pdf',
-        });
-        res.send(Buffer.from(pdfBytes));
+         
+         const downloadUrl = await getDownloadUrl(resultKey);
+         res.json({ downloadUrl });
     } catch (e) {
         console.error(e);
-        res.status(500).send("Failed to convert Word to PDF.");
+        res.status(500).json({ error: "Failed to convert Word to PDF." });
     }
 });
 
 // PDF TO WORD
-router.post('/process/pdf-to-word', upload.single('file'), async (req, res) => {
+router.post('/process/pdf-to-word', express.json(), async (req, res) => {
     try {
-        if (!req.file) return res.status(400).send("File required.");
+        const { key } = req.body;
+        if (!key) return res.status(400).json({ error: "File required." });
+        
+        const buffer = await downloadToBuffer(key);
+        
         const pdfParse = (await import('pdf-parse')).default;
         const { Document, Packer, Paragraph, TextRun } = await import('docx');
 
-        const data = await pdfParse(req.file.buffer);
+        const data = await pdfParse(buffer);
         const text = data.text;
 
         const doc = new Document({
@@ -688,28 +757,32 @@ router.post('/process/pdf-to-word', upload.single('file'), async (req, res) => {
             }],
         });
 
-        const buffer = await Packer.toBuffer(doc);
+        const docxBuffer = await Packer.toBuffer(doc);
+        
+        const resultKey = `results/${Date.now()}_${uuidv4()}_converted.docx`;
+        await uploadBuffer(resultKey, docxBuffer, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
         
         await logUsage(req, 'PDF to Word');
         
-        res.set({
-            'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            'Content-Disposition': 'attachment; filename=converted.docx',
-        });
-        res.send(buffer);
+        const downloadUrl = await getDownloadUrl(resultKey);
+        res.json({ downloadUrl });
     } catch (e) {
         console.error(e);
-        res.status(500).send("Failed to convert PDF to Word.");
+        res.status(500).json({ error: "Failed to convert PDF to Word." });
     }
 });
 
 // EXCEL TO PDF
-router.post('/process/excel-to-pdf', upload.single('file'), async (req, res) => {
+router.post('/process/excel-to-pdf', express.json(), async (req, res) => {
     try {
-        if (!req.file) return res.status(400).send("File required.");
+        const { key } = req.body;
+        if (!key) return res.status(400).json({ error: "File required." });
+        
+        const buffer = await downloadToBuffer(key);
+        
         const XLSX = await import('xlsx');
         
-        const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+        const workbook = XLSX.read(buffer, { type: 'buffer' });
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
         const csv = XLSX.utils.sheet_to_csv(sheet);
@@ -732,27 +805,32 @@ router.post('/process/excel-to-pdf', upload.single('file'), async (req, res) => 
         });
 
         const pdfBytes = await pdfDoc.save();
+        
+        const resultKey = `results/${Date.now()}_${uuidv4()}_converted.pdf`;
+        await uploadBuffer(resultKey, Buffer.from(pdfBytes), 'application/pdf');
+
         await logUsage(req, 'Excel to PDF');
-        res.set({
-            'Content-Type': 'application/pdf',
-            'Content-Disposition': 'attachment; filename=converted.pdf',
-        });
-        res.send(Buffer.from(pdfBytes));
+        
+        const downloadUrl = await getDownloadUrl(resultKey);
+        res.json({ downloadUrl });
 
     } catch (e) {
         console.error(e);
-        res.status(500).send("Failed to convert Excel to PDF.");
+        res.status(500).json({ error: "Failed to convert Excel to PDF." });
     }
 });
 
 // PDF TO EXCEL
-router.post('/process/pdf-to-excel', upload.single('file'), async (req, res) => {
+router.post('/process/pdf-to-excel', express.json(), async (req, res) => {
     try {
-        if (!req.file) return res.status(400).send("File required.");
+        const { key } = req.body;
+        if (!key) return res.status(400).json({ error: "File required." });
+        
+        const buffer = await downloadToBuffer(key);
         const pdfParse = (await import('pdf-parse')).default;
         const XLSX = await import('xlsx');
 
-        const data = await pdfParse(req.file.buffer);
+        const data = await pdfParse(buffer);
         const text = data.text;
         
         // Strategy: Naive line split. Ideally we'd detect tables.
@@ -762,29 +840,33 @@ router.post('/process/pdf-to-excel', upload.single('file'), async (req, res) => 
         const ws = XLSX.utils.aoa_to_sheet(rows);
         XLSX.utils.book_append_sheet(wb, ws, "PDF Data");
         
-        const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+        const xlsxBuffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
          
+        const resultKey = `results/${Date.now()}_${uuidv4()}_converted.xlsx`;
+        await uploadBuffer(resultKey, xlsxBuffer, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+
         await logUsage(req, 'PDF to Excel');
         
-         res.set({
-            'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'Content-Disposition': 'attachment; filename=converted.xlsx',
-        });
-        res.send(buffer);
+        const downloadUrl = await getDownloadUrl(resultKey);
+        res.json({ downloadUrl });
     } catch (e) {
         console.error(e);
-        res.status(500).send("Failed to convert PDF to Excel.");
+        res.status(500).json({ error: "Failed to convert PDF to Excel." });
     }
 });
 
 // PDF TO PPTX
-router.post('/process/pdf-to-pptx', upload.single('file'), async (req, res) => {
+router.post('/process/pdf-to-pptx', express.json(), async (req, res) => {
     try {
-        if (!req.file) return res.status(400).send("File required.");
+        const { key } = req.body;
+        if (!key) return res.status(400).json({ error: "File required." });
+        
+        const buffer = await downloadToBuffer(key);
+        
         const pdfParse = (await import('pdf-parse')).default;
         const pptxgen = (await import('pptxgenjs')).default;
 
-        const data = await pdfParse(req.file.buffer);
+        const data = await pdfParse(buffer);
         
         const pptx = new pptxgen();
         let slide = pptx.addSlide();
@@ -797,31 +879,67 @@ router.post('/process/pdf-to-pptx', upload.single('file'), async (req, res) => {
             const chunk = text.substring(i, i + charsPerSlide).replace(/[^\x00-\x7F]/g, "");
             slide.addText(chunk, { x: 0.5, y: 0.5, w: '90%', h: '90%', fontSize: 12, color: '363636' });
         }
+        
+        // pptxgen buffer output requires 'nodebuffer'
+        const pptxBuffer = await pptx.write({ outputType: 'nodebuffer' });
+        
+        const resultKey = `results/${Date.now()}_${uuidv4()}_converted.pptx`;
+        await uploadBuffer(resultKey, pptxBuffer, 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
 
-        const buffer = await pptx.write({ outputType: 'nodebuffer' });
+        await logUsage(req, 'PDF to Powerpoint');
         
-        await logUsage(req, 'PDF to PPTX');
-        
-        res.set({
-            'Content-Type': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-            'Content-Disposition': 'attachment; filename=converted.pptx',
-        });
-        res.send(buffer);
+        const downloadUrl = await getDownloadUrl(resultKey);
+        res.json({ downloadUrl });
 
     } catch (e) {
         console.error(e);
-        res.status(500).send("Failed to convert PDF to PPTX.");
+        res.status(500).json({ error: "Failed to convert PDF to Powerpoint." });
     }
 });
+
+
 
 // PPTX TO PDF
 router.post('/process/pptx-to-pdf', async (req, res) => {
      res.status(400).send("PPTX to PDF conversion is not supported in this serverless environment.");
 });
 
+// ROTATE PDF
+router.post('/process/rotate', express.json(), async (req, res) => {
+    try {
+        const { key, angle } = req.body;
+        if (!key) return res.status(400).json({ error: "File required." });
+        
+        const rotationAngle = parseInt(angle) || 90;
+        
+        const buffer = await downloadToBuffer(key);
+        const pdfDoc = await PDFDocument.load(buffer);
+        const pages = pdfDoc.getPages();
+        
+        pages.forEach(page => {
+            const currentRotation = page.getRotation().angle;
+            page.setRotation(degrees(currentRotation + rotationAngle));
+        });
+        
+        const pdfBytes = await pdfDoc.save();
+        
+        const resultKey = `results/${Date.now()}_${uuidv4()}_rotated.pdf`;
+        await uploadBuffer(resultKey, Buffer.from(pdfBytes), 'application/pdf');
+
+        await logUsage(req, 'Rotate PDF');
+        
+        const downloadUrl = await getDownloadUrl(resultKey);
+        res.json({ downloadUrl });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: "Failed to rotate PDF." });
+    }
+});
+
 // PDF TO JPG
-router.post('/process/pdf-to-jpg', upload.single('file'), async (req, res) => {
-    res.status(400).send("PDF to Image conversion requires enabling native binaries, currently disabled for stability.");
+router.post('/process/pdf-to-jpg', express.json(), async (req, res) => {
+    // const { key } = req.body;
+    res.status(400).json({ error: "PDF to Image conversion requires enabling native binaries, currently disabled for stability." });
 });
 
 

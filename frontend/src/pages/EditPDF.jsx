@@ -133,40 +133,7 @@ const EditPDF = () => {
     
     // Collect objects
     const objects = fabricCanvasRef.current.getObjects();
-    const ops = objects.map(obj => {
-        // Convert Fabric object to JSON op
-        let op = {
-            page: currentPage - 1, // 0-indexed for backend
-            x: obj.left / 1.5,
-            y: obj.top / 1.5,
-        };
-        
-        if (obj.type === 'i-text' || obj.type === 'text') {
-            op.type = 'text';
-            op.text = obj.text;
-            op.fontSize = obj.fontSize / 1.5 * obj.scaleY; // Approximating scale
-            op.color = obj.fill;
-        } else if (obj.type === 'image') {
-            op.type = 'image';
-            op.data = obj.getSrc(); 
-            op.width = (obj.width * obj.scaleX) / 1.5;
-            op.height = (obj.height * obj.scaleY) / 1.5;
-        } else if (obj.type === 'path') {
-            // Drawings are paths. Converting path to image for backend simplicity v1
-             // This is tricky. Let's skip paths for JSON ops for now OR 
-             // Ideally implementing "flattening" on frontend by exporting canvas as image
-             // But we want to keep original text searchable?
-             // If we just want visually correct PDF, we can use the "Overlay Image" strategy
-             // for the WHOLE page edits.
-        }
-        return op;
-    });
-
-    // Strategy 2: Export entire fabric canvas (without background) as a transparent image
-    // and overlay it on the PDF page. This handles drawings, text, everything visually perfect.
-    // Disadvantage: Text added is not "real text" in PDF (not selectable).
-    // But for an MVP "Edit PDF" tool, this is robust.
-    
+    // Use Overlay Strategy
     const originalBg = fabricCanvasRef.current.backgroundImage;
     fabricCanvasRef.current.backgroundImage = null;
     const overlayData = fabricCanvasRef.current.toDataURL({ format: 'png', multiplier: 2 });
@@ -181,20 +148,28 @@ const EditPDF = () => {
         width: fabricCanvasRef.current.width / 1.5,
         height: fabricCanvasRef.current.height / 1.5
     };
-
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("operations", JSON.stringify([op])); // Only current page for now
+    
+    const operations = JSON.stringify([op]);
 
     try {
-        const response = await axios.post('/api/process/edit', formData, {
-            responseType: 'blob',
-            headers: { 'Content-Type': 'multipart/form-data' },
+        // 1. Upload to S3
+        const uploadConfigRes = await axios.post('/api/s3/upload-url', {
+             filename: file.name,
+             contentType: file.type
+        });
+        const { uploadUrl, key } = uploadConfigRes.data;
+        
+        await axios.put(uploadUrl, file, {
+             headers: { 'Content-Type': file.type }
         });
 
-        const url = window.URL.createObjectURL(new Blob([response.data]));
+        // 2. Trigger Edit
+        const response = await axios.post('/api/process/edit', { key, operations });
+        
+        // 3. Download
+        const { downloadUrl } = response.data;
         const link = document.createElement('a');
-        link.href = url;
+        link.href = downloadUrl;
         link.setAttribute('download', 'edited.pdf');
         document.body.appendChild(link);
         link.click();

@@ -25,21 +25,25 @@ const UnlockPDF = () => {
     setLoading(true);
     setError(null);
 
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("password", password);
-
     try {
-        const response = await axios.post('/api/process/unlock', formData, {
-            responseType: 'blob',
-            headers: {
-                'Content-Type': 'multipart/form-data',
-            },
+        // 1. Upload to S3
+        const uploadConfigRes = await axios.post('/api/s3/upload-url', {
+             filename: file.name,
+             contentType: file.type
+        });
+        const { uploadUrl, key } = uploadConfigRes.data;
+        
+        await axios.put(uploadUrl, file, {
+             headers: { 'Content-Type': file.type }
         });
 
-        const url = window.URL.createObjectURL(new Blob([response.data]));
+        // 2. Trigger Unlock
+        const response = await axios.post('/api/process/unlock', { key, password });
+
+        // 3. Download Result
+        const { downloadUrl } = response.data;
         const link = document.createElement('a');
-        link.href = url;
+        link.href = downloadUrl;
         link.setAttribute('download', 'unlocked.pdf');
         document.body.appendChild(link);
         link.click();
@@ -47,7 +51,11 @@ const UnlockPDF = () => {
         window.dispatchEvent(new Event('usage-updated'));
     } catch (err) {
         console.error("Unlock error:", err);
-        setError("Failed to unlock PDF. Wrong password?");
+        if (err.response && err.response.status === 403) {
+             setError("Incorrect password. Please try again.");
+        } else {
+             setError("Failed to unlock PDF.");
+        }
     } finally {
         setLoading(false);
     }

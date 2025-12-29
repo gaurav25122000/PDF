@@ -25,21 +25,25 @@ const WatermarkPDF = () => {
     setLoading(true);
     setError(null);
 
-    const formData = new FormData();
-    formData.append("file", file);
-    // Passing text as query param for simplicity as per backed implementation
-    
     try {
-        const response = await axios.post(`/api/process/watermark?text=${encodeURIComponent(text)}`, formData, {
-            responseType: 'blob',
-            headers: {
-                'Content-Type': 'multipart/form-data',
-            },
+        // 1. Upload to S3
+        const uploadConfigRes = await axios.post('/api/s3/upload-url', {
+             filename: file.name,
+             contentType: file.type
+        });
+        const { uploadUrl, key } = uploadConfigRes.data;
+        
+        await axios.put(uploadUrl, file, {
+             headers: { 'Content-Type': file.type }
         });
 
-        const url = window.URL.createObjectURL(new Blob([response.data]));
+        // 2. Trigger Watermark
+        const response = await axios.post('/api/process/watermark', { key, text });
+
+        // 3. Download Result
+        const { downloadUrl } = response.data;
         const link = document.createElement('a');
-        link.href = url;
+        link.href = downloadUrl;
         link.setAttribute('download', 'watermarked.pdf');
         document.body.appendChild(link);
         link.click();

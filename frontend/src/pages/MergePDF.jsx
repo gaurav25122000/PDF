@@ -29,28 +29,39 @@ const MergePDF = () => {
     setLoading(true);
     setError(null);
 
-    const formData = new FormData();
-    files.forEach((file) => {
-        formData.append("files", file);
-    });
-
     try {
-        const response = await axios.post('/api/process/merge', formData, {
-            responseType: 'blob',
-            headers: {
-                'Content-Type': 'multipart/form-data',
-            },
-        });
+        const keys = [];
+        
+        // 1. Upload each file to S3
+        for (const file of files) {
+             // Get Presigned URL
+             const uploadConfigRes = await axios.post('/api/s3/upload-url', {
+                 filename: file.name,
+                 contentType: file.type
+             });
+             const { uploadUrl, key } = uploadConfigRes.data;
+             
+             // Upload to S3
+             await axios.put(uploadUrl, file, {
+                 headers: { 'Content-Type': file.type }
+             });
+             
+             keys.push(key);
+        }
 
-        // Create download link
-        const url = window.URL.createObjectURL(new Blob([response.data]));
+        // 2. Trigger Merge with keys
+        const response = await axios.post('/api/process/merge', { keys });
+        
+        // 3. Download result
+        const { downloadUrl } = response.data;
         const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', 'merged.pdf');
+        link.href = downloadUrl;
+        link.setAttribute('download', 'merged.pdf'); // Browser might prefer Content-Disposition
         document.body.appendChild(link);
         link.click();
         link.parentNode.removeChild(link);
-        window.dispatchEvent(new Event('usage-updated')); // Trigger Banner Refresh
+        
+        window.dispatchEvent(new Event('usage-updated')); 
     } catch (err) {
         console.error("Merge error:", err);
         setError("Failed to merge PDFs. Please try again.");

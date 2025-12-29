@@ -147,19 +147,27 @@ const SignPDF = () => {
         height: fabricCanvasRef.current.height / 1.5
     };
 
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("operations", JSON.stringify([op]));
+    const operations = JSON.stringify([op]);
 
     try {
-        const response = await axios.post('/api/process/edit', formData, {
-            responseType: 'blob',
-            headers: { 'Content-Type': 'multipart/form-data' },
+        // 1. Upload to S3
+        const uploadConfigRes = await axios.post('/api/s3/upload-url', {
+             filename: file.name,
+             contentType: file.type
+        });
+        const { uploadUrl, key } = uploadConfigRes.data;
+        
+        await axios.put(uploadUrl, file, {
+             headers: { 'Content-Type': file.type }
         });
 
-        const url = window.URL.createObjectURL(new Blob([response.data]));
+        // 2. Trigger Process (Sign is same as Edit in backend)
+        const response = await axios.post('/api/process/edit', { key, operations });
+
+        // 3. Download
+        const { downloadUrl } = response.data;
         const link = document.createElement('a');
-        link.href = url;
+        link.href = downloadUrl;
         link.setAttribute('download', 'signed.pdf');
         document.body.appendChild(link);
         link.click();

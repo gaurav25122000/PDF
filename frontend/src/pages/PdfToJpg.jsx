@@ -24,20 +24,26 @@ const PdfToJpg = () => {
     setLoading(true);
     setError(null);
 
-    const formData = new FormData();
-    formData.append("file", file);
-
     try {
-        const response = await axios.post('/api/process/pdf-to-jpg', formData, {
-            responseType: 'blob',
-            headers: {
-                'Content-Type': 'multipart/form-data',
-            },
+        // 1. Upload to S3
+        const uploadConfigRes = await axios.post('/api/s3/upload-url', {
+             filename: file.name,
+             contentType: file.type
+        });
+        const { uploadUrl, key } = uploadConfigRes.data;
+        
+        await axios.put(uploadUrl, file, {
+             headers: { 'Content-Type': file.type }
         });
 
-        const url = window.URL.createObjectURL(new Blob([response.data]));
+        // 2. Trigger Conversion
+        const response = await axios.post('/api/process/pdf-to-jpg', { key });
+
+        // 3. Download Result
+        // Note: Backend currently returns 400 for this tool, so this part won't be reached until backend is enabled.
+        const { downloadUrl } = response.data;
         const link = document.createElement('a');
-        link.href = url;
+        link.href = downloadUrl;
         link.setAttribute('download', 'images.zip');
         document.body.appendChild(link);
         link.click();
@@ -45,7 +51,12 @@ const PdfToJpg = () => {
         window.dispatchEvent(new Event('usage-updated'));
     } catch (err) {
         console.error("PDF to JPG error:", err);
-        setError("Failed to convert PDF to JPG.");
+        // Handle backend disabled message
+         if (err.response && err.response.data && err.response.data.error) {
+            setError(err.response.data.error);
+        } else {
+            setError("Failed to convert PDF to JPG.");
+        }
     } finally {
         setLoading(false);
     }
