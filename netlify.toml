@@ -1,5 +1,5 @@
 [build]
-  command = "cd frontend && npm install && npm run build"
+  command = "pip install -r requirements.txt && cd frontend && npm install && npm run build"
   publish = "frontend/dist"
 
 [build.environment]
