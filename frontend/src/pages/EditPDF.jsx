@@ -134,9 +134,12 @@ const EditPDF = () => {
     // Collect objects
     // Use Overlay Strategy
     const originalBg = fabricCanvasRef.current.backgroundImage;
+    const originalColor = fabricCanvasRef.current.backgroundColor;
     fabricCanvasRef.current.backgroundImage = null;
-    const overlayDataUrl = fabricCanvasRef.current.toDataURL({ format: 'png', multiplier: 2 });
+    fabricCanvasRef.current.backgroundColor = null; // Ensure transparent
+    const overlayDataUrl = fabricCanvasRef.current.toDataURL({ format: 'png', multiplier: 2, enableRetinaScaling: true });
     fabricCanvasRef.current.backgroundImage = originalBg; 
+    fabricCanvasRef.current.backgroundColor = originalColor; 
     
     try {
         // 1. Upload Original PDF to S3
