@@ -653,12 +653,28 @@ router.post('/process/edit', express.json(), async (req, res) => {
                     }
                 }
 
-                page.drawImage(image, {
-                    x: op.x || 0,
-                    y: op.y || 0,
+                // Calculate dimensions to fit page exactly
+                const pageWidth = page.getWidth();
+                const pageHeight = page.getHeight();
+                
+                // If it's an overlay (key exists), force it to cover page
+                let drawOpts = {
+                    x: 0,
+                    y: 0,
                     width: op.width || image.width,
                     height: op.height || image.height,
-                });
+                };
+
+                if (op.key) {
+                     drawOpts = {
+                        x: 0,
+                        y: 0,
+                        width: pageWidth,
+                        height: pageHeight,
+                    };
+                }
+
+                page.drawImage(image, drawOpts);
             } else if (op.type === 'text') {
                  const font = await pdfDoc.embedFont("Helvetica");
                  page.drawText(op.text, {
