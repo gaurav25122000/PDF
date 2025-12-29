@@ -1,8 +1,10 @@
+import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 // Helmet is handled inside SEO component
 import SEO from '../components/SEO';
 import ToolCard from '../components/ToolCard';
 import UsageBanner from '../components/UsageBanner';
+import Fuse from 'fuse.js';
 import {
   Combine,
   Scissors,
@@ -14,10 +16,12 @@ import {
   Edit3,
   PenTool,
   Sheet,
-  Presentation
+  Presentation,
+  Search
 } from 'lucide-react';
 
 const Home = () => {
+  const [query, setQuery] = useState('');
   const tools = [
     {
       title: "Merge PDF",
@@ -138,7 +142,18 @@ const Home = () => {
       to: "/excel-to-pdf",
       color: "green"
     }
-  ];
+  ]; // End of tools array
+
+  const filteredTools = useMemo(() => {
+      if (!query) return tools;
+
+      const fuse = new Fuse(tools, {
+          keys: ['title', 'description', 'keywords'], // 'keywords' if we add them to tool obj, else just title/desc
+          threshold: 0.3, // 0.0 = perfect match, 1.0 = match anything
+      });
+
+      return fuse.search(query).map(result => result.item);
+  }, [query, tools]);
 
   const container = {
     hidden: { opacity: 0 },
@@ -201,21 +216,50 @@ const Home = () => {
           >
             The most powerful PDF tools in the multiverse. Merge, split, compress, and conquer your documents with just a few clicks.
           </motion.p>
+          
+          {/* Search Bar */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="relative max-w-xl mx-auto group"
+          >
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                <Search className="h-6 w-6 text-gray-500 group-focus-within:text-marvel-red transition-colors" />
+            </div>
+            <input
+                type="text"
+                className="block w-full pl-12 pr-4 py-4 rounded-2xl bg-white/10 border border-gray-700 backdrop-blur-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-marvel-red focus:bg-white/20 transition-all text-lg"
+                placeholder="Search for tools (e.g. 'merge', 'word', 'sign')..."
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+            />
+          </motion.div>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20 -mt-10">
         <motion.div 
+            // Reset animation when list changes to give feedback? 
+            // Or just use AnimatePresence if we want items to pop in/out. 
+            // For now, simple list re-render is fine.
+            key={query} // Key change forces re-animation of the list
             variants={container}
             initial="hidden"
             animate="show"
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
         >
-          {tools.map((tool, index) => (
-            <motion.div variants={item} key={index} className="h-full">
+          {filteredTools.map((tool, index) => (
+            <motion.div variants={item} key={tool.to} className="h-full">
                 <ToolCard {...tool} />
             </motion.div>
           ))}
+          
+          {filteredTools.length === 0 && (
+              <div className="col-span-full text-center py-20 text-gray-500">
+                  <p className="text-xl">No tools found for "{query}". Try a different search term.</p>
+              </div>
+          )}
         </motion.div>
       </div>
     </div>
