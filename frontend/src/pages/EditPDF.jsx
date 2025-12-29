@@ -5,11 +5,12 @@ import SEO from '../components/SEO';
 import FileUploader from '../components/FileUploader';
 import { File, Loader2, Edit3, Type, Image as ImageIcon, Download, Square } from 'lucide-react';
 import axios from 'axios';
-import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
-import { Canvas, FabricImage, IText, Image as LegacyImage } from 'fabric';
+import * as pdfjsLib from 'pdfjs-dist';
+import * as fabric from 'fabric';
 
 // Configure PDF.js worker
-GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+// Using CDN for worker to avoid build complexity with vite for now
+pdfjsLib.GlobalWorkerOptions.workerSrc = `/pdf.worker.min.mjs`;
 
 const EditPDF = () => {
   const [file, setFile] = useState(null);
@@ -38,7 +39,7 @@ const EditPDF = () => {
       try {
           console.log("Loading PDF...");
           const arrayBuffer = await pdfFile.arrayBuffer();
-          const loadedPdf = await getDocument(arrayBuffer).promise;
+          const loadedPdf = await pdfjsLib.getDocument(arrayBuffer).promise;
           setPdfDoc(loadedPdf);
           setNumPages(loadedPdf.numPages);
           console.log("PDF Loaded, pages:", loadedPdf.numPages);
@@ -68,7 +69,9 @@ const EditPDF = () => {
         console.log("PDF Page rendered to hidden canvas");
 
         if (!fabricCanvasRef.current) {
-            const fCanvas = new Canvas('fabric-canvas', {
+            // Robust Canvas creation
+            const CanvasClass = fabric.Canvas || fabric.StaticCanvas;
+            const fCanvas = new CanvasClass('fabric-canvas', {
                 height: viewport.height,
                 width: viewport.width,
             });
@@ -88,39 +91,64 @@ const EditPDF = () => {
 
   const initFabricLayer = async (fCanvas, sourceCanvas) => {
       try {
-          // Create Fabric Image directly from the Helper Canvas Element
-          // This avoids DataURL encoding/decoding issues
-          const img = new FabricImage(sourceCanvas, {
-              left: 0,
-              top: 0,
-              selectable: false,
-              evented: false,
-          });
+          // Robust Image Class Detection
+          const ImageClass = fabric.FabricImage || fabric.Image;
           
-          // Scale if needed (though we matched dimensions)
-          img.scaleX = fCanvas.width / img.width;
-          img.scaleY = fCanvas.height / img.height;
+          if (!ImageClass) {
+              throw new Error("Fabric Image class not found");
+          }
 
-          fCanvas.add(img);
-          fCanvas.moveObjectTo(img, 0);
-          fCanvas.requestRenderAll();
-          console.log("Fabric layer initialized");
-      } catch (err) {
-          console.error("Fabric Init Error:", err);
-          // Fallback mechanism if direct element fails
+          // Method 1: Try creating from Element directly (Fastest)
           try {
-               const dataUrl = sourceCanvas.toDataURL();
-               const img = await FabricImage.fromURL(dataUrl);
+              const img = new ImageClass(sourceCanvas, {
+                  left: 0,
+                  top: 0,
+                  selectable: false,
+                  evented: false,
+              });
+              
+              img.scaleX = fCanvas.width / img.width;
+              img.scaleY = fCanvas.height / img.height;
+
+              fCanvas.add(img);
+              fCanvas.moveObjectTo(img, 0);
+              fCanvas.requestRenderAll();
+              console.log("Fabric layer initialized via Element");
+              return;
+          } catch (elementErr) {
+              console.warn("Direct element init failed, trying dataURL...", elementErr);
+          }
+
+          // Method 2: Fallback to Data URL (Most Compatible)
+          const dataUrl = sourceCanvas.toDataURL();
+          
+          // Check if fromURL returns a promise (v6+) or needs callback (v5)
+          const result = ImageClass.fromURL(dataUrl);
+          
+          if (result instanceof Promise) {
+               const img = await result;
                img.set({ left:0, top:0, selectable:false, evented:false });
                img.scaleX = fCanvas.width / img.width;
                img.scaleY = fCanvas.height / img.height;
                fCanvas.add(img);
                fCanvas.moveObjectTo(img, 0);
                fCanvas.requestRenderAll();
-          } catch(e) {
-               console.error("Fallback failed:", e);
-               setError("Could not display PDF page.");
+          } else {
+               // v5 Callback style (should not happen in v7 but covering bases)
+               ImageClass.fromURL(dataUrl, (img) => {
+                   img.set({ left:0, top:0, selectable:false, evented:false });
+                   img.scaleX = fCanvas.width / img.width;
+                   img.scaleY = fCanvas.height / img.height;
+                   fCanvas.add(img);
+                   fCanvas.moveObjectTo(img, 0);
+                   fCanvas.requestRenderAll();
+               });
           }
+          console.log("Fabric layer initialized via URL");
+
+      } catch (err) {
+          console.error("Fabric Init Error:", err);
+          setError("Could not display PDF page.");
       }
   };
 
@@ -142,7 +170,7 @@ const EditPDF = () => {
 
   const addText = () => {
     if (fabricCanvasRef.current) {
-        const text = new IText('Type here', {
+        const text = new fabric.IText('Type here', {
             left: 100,
             top: 100,
             fontFamily: 'Helvetica',
