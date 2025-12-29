@@ -8,6 +8,10 @@ import { Stream } from 'stream';
 
 const app = express();
 app.use(cors());
+// Mount router on various paths to handle Netlify's rewriting quirks
+app.use('/.netlify/functions/api', router);
+app.use('/api', router);
+app.use('/', router); 
 
 // Configure multer for memory storage
 const upload = multer({ 
