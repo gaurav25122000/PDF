@@ -148,7 +148,7 @@ const checkRateLimit = async (req, res, next) => {
             resetTime = new Date(oldestDate.getTime() + 24 * 60 * 60 * 1000);
         }
 
-        if (count >= 3) {
+        if (count >= 300) {
             return res.status(429).json({
                 error: "Daily limit reached.",
                 usage: count,
