@@ -54,7 +54,7 @@ const FAQ = () => {
             />
             <FAQItem 
                 question="How can I contact support?" 
-                answer="You can reach our support team at support@marvelpdf.com. We typically respond within 24 hours."
+                answer="You can reach our support team at marvel.pdf.queries@gmail.com. We typically respond within 24 hours."
             />
         </div>
       </div>

@@ -57,9 +57,9 @@ const Footer = () => {
           <div>
             <h3 className="text-white font-bold uppercase tracking-wider mb-4">Contact</h3>
             <div className="flex flex-col space-y-3 text-sm">
-                <a href="mailto:support@marvelpdf.com" className="flex items-center gap-2 hover:text-white transition-colors">
+                <a href="mailto:marvel.pdf.queries@gmail.com" className="flex items-center gap-2 hover:text-white transition-colors">
                     <Mail size={16} className="text-marvel-red" />
-                    support@marvelpdf.com
+                    marvel.pdf.queries@gmail.com
                 </a>
                 <div className="flex space-x-4 mt-2">
                     <a href="#" className="text-gray-500 hover:text-white transition-colors"><Github size={20} /></a>

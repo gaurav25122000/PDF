@@ -25,7 +25,7 @@ const Contact = () => {
                     </div>
                     <div>
                         <h3 className="font-bold text-marvel-black text-lg">Email Us</h3>
-                        <p className="text-gray-600">support@marvelpdf.com</p>
+                        <p className="text-gray-600">marvel.pdf.queries@gmail.com</p>
                         <p className="text-gray-500 text-sm mt-1">We'll respond within 24 hours.</p>
                     </div>
                 </div>
