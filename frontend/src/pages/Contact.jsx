@@ -1,15 +1,21 @@
 import React from 'react';
-import { Helmet } from 'react-helmet-async';
-import { Mail, MapPin, Phone } from 'lucide-react';
+import { Mail, MapPin, Phone, ArrowLeft } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import SEO from '../components/SEO';
 
 const Contact = () => {
   return (
-    <div className="min-h-screen bg-white text-gray-800 pt-24 pb-12 px-4 sm:px-6 lg:px-8 absolute inset-0 z-40 overflow-y-auto">
-      <Helmet>
-        <title>Contact Us - MarvelPDF</title>
-      </Helmet>
+    <div className="min-h-screen bg-white text-gray-800 pt-20 pb-12 px-4 sm:px-6 lg:px-8 absolute inset-0 z-40 overflow-y-auto">
+      <SEO 
+        title="Contact Us - MarvelPDF" 
+        description="Get in touch with the MarvelPDF team. We are here to help with any questions or support requests."
+        keywords="contact us, support, help, email support"
+      />
       
       <div className="max-w-4xl mx-auto">
+        <Link to="/" className="inline-flex items-center gap-2 text-gray-500 hover:text-marvel-black transition-colors font-bold mb-8">
+            <ArrowLeft size={20} /> Back to Tools
+        </Link>
         <h1 className="text-4xl font-heading text-marvel-black mb-8 text-center">Get in Touch</h1>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12">

@@ -4,26 +4,20 @@ import { useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, LogIn, Lock, Mail } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-const Login = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const { login } = useAuth();
-  const navigate = useNavigate();
+import SEO from '../components/SEO';
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    try {
-      await login(email, password);
-      navigate('/');
-    } catch (err) {
-      setError(err.response?.data?.error || "Login failed");
-    }
-  };
+const Login = () => {
+  // ... state logic
+
+  // ... handleSubmit
 
   return (
     <div className="flex items-center justify-center p-4 w-full max-w-md relative z-10">
+      <SEO 
+        title="Login - MarvelPDF" 
+        description="Log in to your MarvelPDF account to access premium features and manage your PDF tools."
+        keywords="login, sign in, pdf tools account"
+      />
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}

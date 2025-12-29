@@ -1,96 +1,107 @@
-import React from 'react';
-import { Helmet } from 'react-helmet-async';
+import React, { useEffect } from 'react';
+import { ArrowLeft, CheckCircle, AlertTriangle, Scale, FileText } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import SEO from '../components/SEO';
 
-const LegalPage = ({ title, date, children }) => (
-  <div className="min-h-screen bg-white text-gray-800 pt-24 pb-12 px-4 sm:px-6 lg:px-8 absolute inset-0 z-40 overflow-y-auto">
-    <Helmet>
-      <title>{title} - MarvelPDF</title>
-    </Helmet>
-    <div className="max-w-4xl mx-auto bg-white p-12 rounded-2xl shadow-sm border border-gray-100">
-      <h1 className="text-4xl font-heading text-marvel-black mb-4">{title}</h1>
-      <div className="w-20 h-1 bg-marvel-red mb-6"></div>
-      <p className="text-gray-500 mb-12 text-sm uppercase tracking-wide font-bold">Last updated: {date}</p>
-      <div className="prose prose-lg max-w-none prose-headings:font-heading prose-headings:text-marvel-black prose-a:text-marvel-red font-sans text-gray-600">
-        {children}
-      </div>
-    </div>
-  </div>
+const SectionLink = ({ href, children, icon: Icon }) => (
+// ...
 );
 
 const Terms = () => {
+    useEffect(() => {
+        window.scrollTo(0, 0);
+    }, []);
+
   return (
-    <LegalPage title="Terms of Service" date="December 29, 2025">
-      <p className="lead">
-        Welcome to MarvelPDF. By accessing or using our website and services, you agree to be bound by these Terms of Service. 
-        Please read them carefully. If you do not agree with any part of these terms, you must not use our services.
-      </p>
+    <div className="min-h-screen bg-gray-50 pt-20 pb-12 px-4 sm:px-6 lg:px-8 absolute inset-0 z-40 overflow-y-auto font-sans">
+      <SEO 
+        title="Terms of Service" 
+        description="Review the Terms of Service for MarvelPDF. Understand your rights and responsibilities when using our free PDF tools."
+        keywords="terms of service, tos, user agreement, legal"
+      />
 
-      <h2>1. Definitions</h2>
-      <p>
-        "Service" refers to the MarvelPDF website and all PDF processing tools provided therein.<br/>
-        "User", "You", and "Your" refers to the individual or entity accessing or using the Service.<br/>
-        "We", "Us", and "Our" refers to MarvelPDF.
-      </p>
+      {/* Navigation Header */}
+      <div className="max-w-7xl mx-auto mb-8 flex items-center justify-between">
+            <Link to="/" className="inline-flex items-center gap-2 text-gray-500 hover:text-marvel-black transition-colors font-bold">
+                <ArrowLeft size={20} /> Back to Tools
+            </Link>
+            <div className="text-sm text-gray-400 font-medium uppercase tracking-wider">
+                Last updated: December 29, 2025
+            </div>
+      </div>
 
-      <h2>2. Use of Service</h2>
-      <p>
-        MarvelPDF grants you a limited, non-exclusive, non-transferable, and revocable license to use our Service for your personal or internal business purposes, subject to these Terms.
-      </p>
-      <h3>2.1 Eligibility</h3>
-      <p>You must be at least 13 years old to use this Service. By using the Service, you represent that you meet this requirement.</p>
-      <h3>2.2 Usage Limits</h3>
-      <p>
-        We enforce a fair usage policy of <strong>3 tasks per day</strong> for all users. You agree not to attempt to bypass these limits using automated scripts, multiple accounts, or IP spoofing.
-      </p>
+      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12">
+        
+        {/* Sidebar Navigation */}
+        <div className="hidden lg:block lg:col-span-3">
+            <div className="sticky top-24 space-y-2">
+                <h3 className="text-marvel-black font-heading text-lg mb-4 px-3">Sections</h3>
+                <SectionLink href="#usage" icon={CheckCircle}>1. Use of Service</SectionLink>
+                <SectionLink href="#responsibilities" icon={FileText}>2. Responsibilities</SectionLink>
+                <SectionLink href="#ip" icon={Scale}>3. Intellectual Property</SectionLink>
+                <SectionLink href="#liability" icon={AlertTriangle}>4. Liability</SectionLink>
+                <SectionLink href="#contact" icon={FileText}>5. Contact</SectionLink>
+            </div>
+        </div>
 
-      <h2>3. User Responsibilities & Content</h2>
-      <p>
-        You are solely responsible for the files you upload and the consequences of processing them.
-      </p>
-      <ul>
-        <li><strong>Lawful Use:</strong> You agree not to upload content that illegal, harmful, threatening, abusive, harassment, defamatory, vulgar, obscene, or racially/ethically objectionable.</li>
-        <li><strong>Intellectual Property:</strong> You represent that you have the necessary rights and permissions to use and process the files you upload. You do not transfer ownership of your content to us.</li>
-        <li><strong>Malware:</strong> You must not upload files that contain viruses, trojans, worms, or any other malicious code.</li>
-      </ul>
+        {/* Main Content */}
+        <div className="lg:col-span-9">
+            <div className="bg-white p-8 md:p-12 rounded-3xl shadow-sm border border-gray-100">
+                <h1 className="text-4xl md:text-5xl font-heading text-marvel-black mb-6">Terms of Service</h1>
+                <p className="text-xl text-gray-600 mb-12 leading-relaxed">
+                    By accessing MarvelPDF, you agree to these terms. Read them carefully—they govern your use of our PDF tools.
+                </p>
+                
+                <div className="prose prose-lg max-w-none prose-headings:font-heading prose-headings:text-marvel-black text-gray-600 prose-ul:list-disc prose-ul:pl-0 prose-li:my-2">
+                    
+                    <section id="usage" className="scroll-mt-24 mb-16">
+                        <h2>1. Use of Service</h2>
+                        <p>
+                            MarvelPDF grants you a limited, non-exclusive license to use our Service for personal or internal business purposes.
+                        </p>
+                        <h3>Usage Limits</h3>
+                        <p>
+                            We enforce a fair usage policy of <strong>3 tasks per day</strong>. Attempts to bypass this limit using automation or multiple accounts are a violation of these terms.
+                        </p>
+                    </section>
+                    
+                    <section id="responsibilities" className="scroll-mt-24 mb-16">
+                        <h2>2. User Responsibilities</h2>
+                        <p>You are solely responsible for the content you upload.</p>
+                        <ul className="pl-4 border-l-2 border-marvel-red/20 ml-2">
+                            <li><strong>Lawful Use:</strong> No illegal, defamatory, or malicious content.</li>
+                            <li><strong>Ownership:</strong> You must own the rights to your files.</li>
+                            <li><strong>Malware:</strong> No uploading viruses or harmful code.</li>
+                        </ul>
+                    </section>
 
-      <h2>4. Intellectual Property Rights</h2>
-      <p>
-        The MarvelPDF website, its original content, features, functionality, design, and code are owned by MarvelPDF and are protected by international copyright, trademark, patent, trade secret, and other intellectual property or proprietary rights laws.
-      </p>
+                    <section id="ip" className="scroll-mt-24 mb-16">
+                         <h2>3. Intellectual Property</h2>
+                         <p>
+                            We own the MarvelPDF platform code and design. You own your uploaded files. We make no claim to your documents.
+                         </p>
+                    </section>
 
-      <h2>5. Termination</h2>
-      <p>
-        We may terminate or suspend your access to our Service immediately, without prior notice or liability, for any reason whatsoever, including without limitation if you breach the Terms.
-      </p>
+                    <section id="liability" className="scroll-mt-24 mb-16">
+                        <h2>4. Limitation of Liability</h2>
+                        <div className="bg-gray-100 p-6 rounded-xl text-sm border border-gray-200">
+                             The Service is provided "AS IS". To the extent permitted by law, MarvelPDF disclaims all warranties. We are not liable for any data loss, profit loss, or damages arising from your use of the service.
+                        </div>
+                    </section>
 
-      <h2>6. Disclaimer of Warranties</h2>
-      <p className="uppercase font-bold text-sm bg-gray-100 p-4 rounded-lg border border-gray-200">
-        The Service is provided on an "AS IS" and "AS AVAILABLE" basis. MarvelPDF makes no representations or warranties of any kind, express or implied, regarding the operation of the Service or the information, content, or materials included therein. To the full extent permissible by applicable law, MarvelPDF disclaims all warranties, express or implied, including, but not limited to, implied warranties of merchantability and fitness for a particular purpose. You expressly agree that your use of the Service is at your sole risk.
-      </p>
+                    <section id="contact" className="scroll-mt-24">
+                        <h2>5. Contact Us</h2>
+                        <p>Questions about these Terms?</p>
+                         <a href="mailto:marvel.pdf.queries@gmail.com" className="no-underline text-marvel-red hover:underline font-bold text-xl block mt-2">
+                            marvel.pdf.queries@gmail.com
+                        </a>
+                    </section>
 
-      <h2>7. Limitation of Liability</h2>
-      <p>
-        In no event shall MarvelPDF, its directors, employees, partners, agents, suppliers, or affiliates, be liable for any indirect, incidental, special, consequential or punitive damages, including without limitation, loss of profits, data, use, goodwill, or other intangible losses, resulting from (i) your access to or use of or inability to access or use the Service; (ii) any conduct or content of any third party on the Service; (iii) any content obtained from the Service; and (iv) unauthorized access, use or alteration of your transmissions or content, whether based on warranty, contract, tort (including negligence) or any other legal theory.
-      </p>
-
-      <h2>8. Indemnification</h2>
-      <p>
-        You agree to defend, indemnify and hold harmless MarvelPDF and its licensee and licensors, and their employees, contractors, agents, officers and directors, from and against any and all claims, damages, obligations, losses, liabilities, costs or debt, and expenses (including but not limited to attorney's fees), resulting from or arising out of a) your use and access of the Service, or b) a breach of these Terms.
-      </p>
-
-      <h2>9. Governing Law</h2>
-      <p>
-        These Terms shall be governed and construed in accordance with the laws, without regard to its conflict of law provisions. Our failure to enforce any right or provision of these Terms will not be considered a waiver of those rights.
-      </p>
-
-      <h2>10. Contact Us</h2>
-      <p>
-        If you have any questions about these Terms, please contact us at:
-      </p>
-      <p className="font-bold text-marvel-red text-xl">
-        marvel.pdf.queries@gmail.com
-      </p>
-    </LegalPage>
+                </div>
+            </div>
+        </div>
+      </div>
+    </div>
   );
 };
 

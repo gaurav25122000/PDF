@@ -60,10 +60,34 @@ const SplitPDF = () => {
 
   return (
     <ToolModal title="Split PDF file">
-      <Helmet>
-        <title>Split PDF - MarvelPDF</title>
-        <meta name="description" content="Separate one page or a whole set for easy conversion into independent PDF files." />
-      </Helmet>
+// ... imports
+import SEO from '../components/SEO';
+
+// ... component logic
+
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Split PDF - MarvelPDF",
+    "applicationCategory": "ProductivityApplication",
+    "operatingSystem": "Any",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "description": "Separate one page or a whole set for easy conversion into independent PDF files. Free and secure.",
+    "featureList": "Split PDF, Extract Pages, Secure processing",
+  };
+
+  return (
+    <ToolModal title="Split PDF file">
+      <SEO 
+        title="Split PDF - Extract Pages from PDF Online" 
+        description="Split specific PDF pages or extract every page into separate documents. Split PDF file online for free."
+        keywords="split pdf, extract pages, separate pdf, cut pdf, pdf splitter online, free pdf splitter"
+        schema={jsonLd}
+      />
       
       <p className="text-gray-500 mb-6 text-center">
         Extract pages from your PDF with surgical precision.

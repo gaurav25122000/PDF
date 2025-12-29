@@ -51,10 +51,34 @@ const CompressPDF = () => {
 
   return (
     <ToolModal title="Compress PDF file">
-      <Helmet>
-        <title>Compress PDF - MarvelPDF</title>
-        <meta name="description" content="Reduce file size while optimizing for maximal PDF quality." />
-      </Helmet>
+// ... imports
+import SEO from '../components/SEO';
+
+// ... component logic
+
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Compress PDF - MarvelPDF",
+    "applicationCategory": "ProductivityApplication",
+    "operatingSystem": "Any",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "description": "Reduce file size while optimizing for maximal PDF quality. Compress PDF online for free.",
+    "featureList": "Compress PDF, Reduce File Size, Optimize PDF",
+  };
+
+  return (
+    <ToolModal title="Compress PDF file">
+      <SEO 
+        title="Compress PDF - Reduce PDF File Size Online" 
+        description="Compress PDF files online for free. Reduce PDF file size while maintaining the best possible quality. Optimize your documents for web and email."
+        keywords="compress pdf, reduce pdf size, optimize pdf, shrink pdf, pdf compressor online, free pdf compressor"
+        schema={jsonLd}
+      />
       
       <p className="text-gray-500 mb-6 text-center">
         Shrink your PDF size without losing quality.

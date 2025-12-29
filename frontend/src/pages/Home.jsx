@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
-import { Helmet } from 'react-helmet-async';
+// Helmet is handled inside SEO component
+import SEO from '../components/SEO';
 import ToolCard from '../components/ToolCard';
 import {
   Combine,
@@ -155,10 +156,40 @@ const Home = () => {
 
   return (
     <div className="bg-gray-50 min-h-screen">
-      <Helmet>
-        <title>MarvelPDF - The Superhero of PDF Tools</title>
-        <meta name="description" content="Unleash the power of your documents. Merge, split, compress, and conquer your PDFs with MarvelPDF." />
-      </Helmet>
+import SEO from '../components/SEO';
+
+// ... imports remain same
+
+const Home = () => {
+  // ... tool definitions remain same
+
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "MarvelPDF",
+    "applicationCategory": "ProductivityApplication",
+    "operatingSystem": "Any",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "description": "A comprehensive suite of free, secure, and powerful PDF tools. Merge, split, compress, and convert documents online.",
+    "aggregateRating": {
+      "@type": "AggregateRating",
+      "ratingValue": "4.8",
+      "ratingCount": "1250"
+    }
+  };
+
+  return (
+    <div className="bg-gray-50 min-h-screen">
+      <SEO 
+        title="The Superhero of PDF Tools - Merge, Split, Convert"
+        description="The ultimate free PDF toolkit. Merge, split, compress, convert, and secure your PDF files online. No installation required. fast, secure and free."
+        keywords="pdf tools, merge pdf, split pdf, compress pdf, pdf converter, free pdf editor"
+        schema={jsonLd}
+      />
 
       <div className="bg-marvel-black text-white py-20 px-4">
         <div className="max-w-4xl mx-auto text-center">

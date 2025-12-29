@@ -1,38 +1,25 @@
 import React from 'react';
-import { Helmet } from 'react-helmet-async';
-import { Plus, Minus } from 'lucide-react';
+import { Plus, Minus, ArrowLeft } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import SEO from '../components/SEO';
 
 const FAQItem = ({ question, answer }) => {
-  const [isOpen, setIsOpen] = React.useState(false);
-
-  return (
-    <div className="border-b border-gray-100 last:border-0 py-4">
-      <button 
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center justify-between w-full text-left focus:outline-none group"
-      >
-        <h3 className="text-lg font-bold text-marvel-black group-hover:text-marvel-red transition-colors">
-          {question}
-        </h3>
-        {isOpen ? <Minus className="text-marvel-red" /> : <Plus className="text-gray-400" />}
-      </button>
-      {isOpen && (
-        <div className="mt-4 text-gray-600 leading-relaxed animate-fadeIn">
-          {answer}
-        </div>
-      )}
-    </div>
-  );
+  // ...
 };
 
 const FAQ = () => {
   return (
-    <div className="min-h-screen bg-white text-gray-800 pt-24 pb-12 px-4 sm:px-6 lg:px-8 absolute inset-0 z-40 overflow-y-auto">
-      <Helmet>
-        <title>FAQ - MarvelPDF</title>
-      </Helmet>
+    <div className="min-h-screen bg-white text-gray-800 pt-20 pb-12 px-4 sm:px-6 lg:px-8 absolute inset-0 z-40 overflow-y-auto">
+      <SEO 
+        title="Frequently Asked Questions - Support" 
+        description="Find answers to common questions about MarvelPDF. Learn about our free limits, file safety, and supported formats."
+        keywords="faq, help, support, pdf questions, pdf help"
+      />
       
       <div className="max-w-3xl mx-auto">
+        <Link to="/" className="inline-flex items-center gap-2 text-gray-500 hover:text-marvel-black transition-colors font-bold mb-8">
+            <ArrowLeft size={20} /> Back to Tools
+        </Link>
         <h1 className="text-4xl font-heading text-marvel-black mb-8 text-center">Frequently Asked Questions</h1>
         
         <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 space-y-2">

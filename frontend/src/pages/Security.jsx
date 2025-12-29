@@ -1,27 +1,28 @@
 import React from 'react';
-import { Helmet } from 'react-helmet-async';
-import { ShieldCheck, Lock, Trash2, Server, EyeOff, FileKey, Globe, RefreshCcw } from 'lucide-react';
+import { ShieldCheck, Lock, Trash2, Server, EyeOff, FileKey, Globe, RefreshCcw, ArrowLeft } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import SEO from '../components/SEO';
 
 const SecurityFeature = ({ icon: Icon, title, description, color = "text-marvel-red", bg = "bg-marvel-red/10" }) => (
-    <div className="bg-gray-50 p-8 rounded-2xl border border-gray-100 hover:shadow-md transition-shadow">
-        <div className={`${bg} w-14 h-14 rounded-xl flex items-center justify-center mb-6`}>
-            <Icon className={color} size={28} />
-        </div>
-        <h3 className="text-xl font-bold mb-3 text-marvel-black font-heading">{title}</h3>
-        <p className="text-gray-600 leading-relaxed text-sm">
-            {description}
-        </p>
-    </div>
+// ...
 );
 
 const Security = () => {
   return (
-    <div className="min-h-screen bg-white text-gray-800 pt-24 pb-12 px-4 sm:px-6 lg:px-8 absolute inset-0 z-40 overflow-y-auto">
-      <Helmet>
-        <title>Security - MarvelPDF</title>
-      </Helmet>
+    <div className="min-h-screen bg-white text-gray-800 pt-20 pb-12 px-4 sm:px-6 lg:px-8 absolute inset-0 z-40 overflow-y-auto">
+      <SEO 
+        title="Security Overview - How We Protect Your Data" 
+        description="Learn about our bank-grade security measures. TLS encryption, ISO 27001 certified servers, and automatic file deletion within 2 hours."
+        keywords="pdf security, secure pdf, encrypted file transfer, auto deletion, data privacy"
+      />
       
       <div className="max-w-6xl mx-auto">
+        <div className="mb-12">
+            <Link to="/" className="inline-flex items-center gap-2 text-gray-500 hover:text-marvel-black transition-colors font-bold">
+                <ArrowLeft size={20} /> Back to Tools
+            </Link>
+        </div>
+
         <div className="text-center mb-20">
              <h1 className="text-5xl md:text-6xl font-heading text-marvel-black mb-6 tracking-tight">Security is our DNA</h1>
              <p className="text-xl text-gray-500 max-w-3xl mx-auto">

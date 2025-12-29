@@ -51,10 +51,34 @@ const PdfToWord = () => {
 
   return (
     <ToolModal title="PDF to Word">
-      <Helmet>
-        <title>PDF to Word - MarvelPDF</title>
-        <meta name="description" content="Mutate your PDFs into editable Word documents instantly." />
-      </Helmet>
+// ... imports
+import SEO from '../components/SEO';
+
+// ... component logic
+
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "PDF to Word - MarvelPDF",
+    "applicationCategory": "ProductivityApplication",
+    "operatingSystem": "Any",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "description": "Mutate your PDFs into editable Word documents instantly. Convert PDF to Word online for free.",
+    "featureList": "PDF to DOCX conversion, Accurate OCR, Secure",
+  };
+
+  return (
+    <ToolModal title="PDF to Word">
+      <SEO 
+        title="PDF to Word Converter - Free Online Tool" 
+        description="Convert PDF to Word documents online for free. Accurate conversion to editable DOCX files. No installation, fast and secure."
+        keywords="pdf to word, convert pdf to word, pdf to docx, free pdf to word converter, online pdf converter"
+        schema={jsonLd}
+      />
       
       <p className="text-gray-500 mb-6 text-center">
         Transform static PDFs into editable Word documents.

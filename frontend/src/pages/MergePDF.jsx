@@ -59,10 +59,34 @@ const MergePDF = () => {
 
   return (
     <ToolModal title="Merge PDF files">
-      <Helmet>
-        <title>Merge PDF - MarvelPDF</title>
-        <meta name="description" content="Assemble your PDFs into one powerful document. The easiest PDF merger in the universe." />
-      </Helmet>
+// ... imports
+import SEO from '../components/SEO';
+
+// ... component logic
+
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Merge PDF - MarvelPDF",
+    "applicationCategory": "ProductivityApplication",
+    "operatingSystem": "Any",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "description": "Combine PDFs in the order you want with the easiest PDF merger available. Mobile friendly and free.",
+    "featureList": "Combine PDFs, Order rearrangement, Secure processing",
+  };
+
+  return (
+    <ToolModal title="Merge PDF files">
+      <SEO 
+        title="Merge PDF - Combine PDF Files Online for Free" 
+        description="Select multiple PDF files and merge them in seconds. Merge & combine PDF files online, easily and free. No registration required."
+        keywords="merge pdf, combine pdf, join pdf, pdf merger, combine pdf online, free pdf merger"
+        schema={jsonLd}
+      />
       
       {/* Description for SEO (visually can be subtle or hidden if modal is tight, but let's keep it clean) */}
       <p className="text-gray-500 mb-6 text-center">
