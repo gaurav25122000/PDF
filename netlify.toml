@@ -5,6 +5,14 @@
 [build.environment]
   PYTHON_VERSION = "3.9"
 
+[functions]
+  directory = "netlify/functions"
+
+[[redirects]]
+  from = "/ping"
+  to = "/.netlify/functions/ping"
+  status = 200
+
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/api/:splat"

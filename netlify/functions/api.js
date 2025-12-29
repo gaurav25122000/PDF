@@ -1,10 +1,10 @@
 import express from 'express';
 import serverless from 'serverless-http';
-import cors from 'cors';
-import multer from 'multer';
-import { PDFDocument, degrees } from 'pdf-lib';
-import archiver from 'archiver';
-import { Stream } from 'stream';
+// import cors from 'cors';
+// import multer from 'multer';
+// import { PDFDocument, degrees } from 'pdf-lib';
+// import archiver from 'archiver';
+// import { Stream } from 'stream';
 
 const app = express();
 app.use(cors());
