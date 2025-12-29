@@ -229,6 +229,7 @@ const Home = () => {
             </div>
             <input
                 type="text"
+                aria-label="Search tools"
                 className="block w-full pl-12 pr-4 py-4 rounded-2xl bg-white/10 border border-gray-700 backdrop-blur-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-marvel-red focus:bg-white/20 transition-all text-lg"
                 placeholder="Search for tools (e.g. 'merge', 'word', 'sign')..."
                 value={query}

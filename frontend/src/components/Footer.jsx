@@ -62,8 +62,8 @@ const Footer = () => {
                     marvel.pdf.queries@gmail.com
                 </a>
                 <div className="flex space-x-4 mt-2">
-                    <a href="#" className="text-gray-500 hover:text-white transition-colors"><Github size={20} /></a>
-                    <a href="#" className="text-gray-500 hover:text-white transition-colors"><Twitter size={20} /></a>
+                    <a href="#" className="text-gray-500 hover:text-white transition-colors" aria-label="Github"><Github size={20} /></a>
+                    <a href="#" className="text-gray-500 hover:text-white transition-colors" aria-label="Twitter"><Twitter size={20} /></a>
                 </div>
             </div>
           </div>

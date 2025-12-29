@@ -43,6 +43,7 @@ const ToolModal = ({ children, title, className = "" }) => {
             <button 
                 onClick={() => navigate('/')}
                 className="p-2 rounded-full hover:bg-gray-100 transition-colors group"
+                aria-label="Close"
             >
                 <X className="w-6 h-6 text-gray-400 group-hover:text-marvel-red" />
             </button>

@@ -42,6 +42,7 @@ const Navbar = () => {
                         onClick={logout}
                         className="bg-gray-800 p-2 rounded-lg hover:bg-gray-700 transition-colors text-gray-400 hover:text-white"
                         title="Logout"
+                        aria-label="Logout"
                      >
                         <LogOut size={20} />
                      </button>
