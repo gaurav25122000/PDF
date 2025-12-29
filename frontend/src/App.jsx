@@ -45,12 +45,15 @@ function App() {
                     We always render Home in the background. 
                     The Routes will render the ToolModal ON TOP of Home.
                 */}
-                <div className="absolute inset-0">
+                {/* 
+                    Home renders as standard content to push the footer down.
+                */}
+                <div className="w-full">
                     <Home />
                 </div>
 
-                {/* These routes render the Modal overlays */}
-                <div className="relative z-10 pointer-events-none">
+                {/* Routes render tool overlays absolutely positioned over the content */}
+                <div className="absolute inset-0 z-10 pointer-events-none">
                     <Routes>
                     <Route path="/" element={<div />} /> {/* Empty for root, so Home shows underneath */}
                     
