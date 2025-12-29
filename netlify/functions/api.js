@@ -8,6 +8,18 @@ import { Stream } from 'stream';
 
 const app = express();
 app.use(cors());
+// DEBUG: Catch-all to see what's happening if no route matches
+router.all('*', (req, res) => {
+    res.status(404).json({
+        error: "Route not found in API",
+        path: req.path,
+        url: req.url,
+        baseUrl: req.baseUrl,
+        originalUrl: req.originalUrl,
+        method: req.method
+    });
+});
+
 // Mount router on various paths to handle Netlify's rewriting quirks
 app.use('/.netlify/functions/api', router);
 app.use('/api', router);
