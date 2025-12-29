@@ -34,15 +34,15 @@ router.all('*', (req, res, next) => {
 // Mount router on various paths to handle Netlify's rewriting quirks
 app.use('/.netlify/functions/api', router);
 app.use('/api', router);
-app.use('/', router); 
+app.use('/', router);
 
 import { getUploadUrl, getDownloadUrl, downloadToBuffer, uploadBuffer } from './s3.js';
 import { v4 as uuidv4 } from 'uuid'; // Try standard import or use crypto.randomUUID
 
 // Configure multer for memory storage
-const upload = multer({ 
-   storage: multer.memoryStorage(),
-   limits: { fileSize: 500 * 1024 * 1024 } // 500MB limit per file (Still useful for small files or local dev)
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 500 * 1024 * 1024 } // 500MB limit per file (Still useful for small files or local dev)
 });
 
 // S3 Routes
@@ -97,7 +97,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_jwt_key_change_me';
 const optionalAuth = (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
-    
+
     if (token) {
         jwt.verify(token, JWT_SECRET, (err, user) => {
             if (!err) req.user = user;
@@ -112,10 +112,10 @@ const optionalAuth = (req, res, next) => {
 const checkRateLimit = async (req, res, next) => {
     try {
         const userId = req.user ? req.user.id : null;
-        const ip = req.headers['client-ip'] || req.headers['x-forwarded-for'] || req.socket.remoteAddress; 
-        
+        const ip = req.headers['client-ip'] || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+
         const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-        
+
         let countResult;
         let oldestRequestResult;
 
@@ -124,7 +124,7 @@ const checkRateLimit = async (req, res, next) => {
                 'SELECT COUNT(*) FROM usage_logs WHERE user_id = $1 AND created_at > $2',
                 [userId, oneDayAgo]
             );
-             oldestRequestResult = await query(
+            oldestRequestResult = await query(
                 'SELECT created_at FROM usage_logs WHERE user_id = $1 AND created_at > $2 ORDER BY created_at ASC LIMIT 1',
                 [userId, oneDayAgo]
             );
@@ -133,36 +133,36 @@ const checkRateLimit = async (req, res, next) => {
                 'SELECT COUNT(*) FROM usage_logs WHERE ip_address = $1 AND created_at > $2',
                 [ip, oneDayAgo]
             );
-             oldestRequestResult = await query(
+            oldestRequestResult = await query(
                 'SELECT created_at FROM usage_logs WHERE ip_address = $1 AND created_at > $2 ORDER BY created_at ASC LIMIT 1',
                 [ip, oneDayAgo]
             );
         }
-        
+
         const count = parseInt(countResult.rows[0].count);
-        
+
         // Calculate Reset Time
         let resetTime = null;
         if (oldestRequestResult.rows.length > 0) {
             const oldestDate = new Date(oldestRequestResult.rows[0].created_at);
-            resetTime = new Date(oldestDate.getTime() + 24 * 60 * 60 * 1000); 
+            resetTime = new Date(oldestDate.getTime() + 24 * 60 * 60 * 1000);
         }
 
         if (count >= 3) {
-            return res.status(429).json({ 
+            return res.status(429).json({
                 error: "Daily limit reached.",
                 usage: count,
-                limit: 3,
+                limit: 300,
                 resetTime: resetTime
             });
         }
-        
+
         req.usageInfo = { userId, ip };
         next();
 
     } catch (e) {
         console.error("Rate Limit Error:", e);
-        next(); 
+        next();
     }
 };
 
@@ -186,19 +186,19 @@ router.post('/auth/signup', async (req, res) => {
     try {
         const { email, password, name } = req.body;
         if (!email || !password) return res.status(400).json({ error: "Email and password required" });
-        
+
         const hashedPassword = await bcrypt.hash(password, 10);
-        
+
         // Try inserting with name. If it fails (col doesn't exist), fallback?
         // Better: Expect user to update DB.
         const result = await query(
             'INSERT INTO users (email, password_hash, name) VALUES ($1, $2, $3) RETURNING id, email, name',
             [email, hashedPassword, name || '']
         );
-        
+
         const user = result.rows[0];
         const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
-        
+
         res.json({ token, user: { id: user.id, email: user.email, name: user.name } });
     } catch (e) {
         if (e.code === '23505') { // Unique violation
@@ -207,7 +207,7 @@ router.post('/auth/signup', async (req, res) => {
         console.error("Signup error:", e);
         // If column 'name' missing, it throws 42703
         if (e.code === '42703') {
-             return res.status(500).json({ error: "Database needs update: Missing 'name' column." });
+            return res.status(500).json({ error: "Database needs update: Missing 'name' column." });
         }
         res.status(500).json({ error: "Signup failed" });
     }
@@ -218,11 +218,11 @@ router.post('/auth/login', async (req, res) => {
         const { email, password } = req.body;
         const result = await query('SELECT * FROM users WHERE email = $1', [email]);
         const user = result.rows[0];
-        
+
         if (!user || !(await bcrypt.compare(password, user.password_hash))) {
             return res.status(401).json({ error: "Invalid credentials" });
         }
-        
+
         const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
         res.json({ token, user: { id: user.id, email: user.email } });
     } catch (e) {
@@ -233,7 +233,7 @@ router.post('/auth/login', async (req, res) => {
 
 router.get('/auth/me', optionalAuth, async (req, res) => {
     if (!req.user) return res.status(401).json({ error: "Not logged in" });
-    
+
     // Get User Details (Name)
     const userRes = await query('SELECT id, email, name FROM users WHERE id = $1', [req.user.id]);
     const userData = userRes.rows[0];
@@ -244,50 +244,50 @@ router.get('/auth/me', optionalAuth, async (req, res) => {
         'SELECT COUNT(*) FROM usage_logs WHERE user_id = $1 AND created_at > $2',
         [req.user.id, oneDayAgo]
     );
-     const oldestRes = await query(
+    const oldestRes = await query(
         'SELECT created_at FROM usage_logs WHERE user_id = $1 AND created_at > $2 ORDER BY created_at ASC LIMIT 1',
         [req.user.id, oneDayAgo]
     );
-    
+
     let resetTime = null;
     if (oldestRes.rows.length > 0) {
         resetTime = new Date(new Date(oldestRes.rows[0].created_at).getTime() + 24 * 60 * 60 * 1000);
     }
-    
-    res.json({ 
+
+    res.json({
         user: userData,
         usageToday: parseInt(countRes.rows[0].count),
-        limit: 3,
+        limit: 300,
         resetTime
     });
 });
 
 router.get('/usage-status', optionalAuth, async (req, res) => {
     try {
-         const userId = req.user ? req.user.id : null;
-         const ip = req.headers['client-ip'] || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-         const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const userId = req.user ? req.user.id : null;
+        const ip = req.headers['client-ip'] || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-         let countResult, oldestResult;
+        let countResult, oldestResult;
 
-         if (userId) {
-             countResult = await query('SELECT COUNT(*) FROM usage_logs WHERE user_id = $1 AND created_at > $2', [userId, oneDayAgo]);
-             oldestResult = await query('SELECT created_at FROM usage_logs WHERE user_id = $1 AND created_at > $2 ORDER BY created_at ASC LIMIT 1', [userId, oneDayAgo]);
-         } else {
-             countResult = await query('SELECT COUNT(*) FROM usage_logs WHERE ip_address = $1 AND created_at > $2', [ip, oneDayAgo]);
-             oldestResult = await query('SELECT created_at FROM usage_logs WHERE ip_address = $1 AND created_at > $2 ORDER BY created_at ASC LIMIT 1', [ip, oneDayAgo]);
-         }
-         
-         let resetTime = null;
+        if (userId) {
+            countResult = await query('SELECT COUNT(*) FROM usage_logs WHERE user_id = $1 AND created_at > $2', [userId, oneDayAgo]);
+            oldestResult = await query('SELECT created_at FROM usage_logs WHERE user_id = $1 AND created_at > $2 ORDER BY created_at ASC LIMIT 1', [userId, oneDayAgo]);
+        } else {
+            countResult = await query('SELECT COUNT(*) FROM usage_logs WHERE ip_address = $1 AND created_at > $2', [ip, oneDayAgo]);
+            oldestResult = await query('SELECT created_at FROM usage_logs WHERE ip_address = $1 AND created_at > $2 ORDER BY created_at ASC LIMIT 1', [ip, oneDayAgo]);
+        }
+
+        let resetTime = null;
         if (oldestResult.rows.length > 0) {
             resetTime = new Date(new Date(oldestResult.rows[0].created_at).getTime() + 24 * 60 * 60 * 1000);
         }
 
-         res.json({
-             usage: parseInt(countResult.rows[0].count),
-             limit: 3,
-             resetTime
-         });
+        res.json({
+            usage: parseInt(countResult.rows[0].count),
+            limit: 300,
+            resetTime
+        });
 
     } catch (e) {
         console.error("Usage Status Error:", e);
@@ -303,11 +303,11 @@ router.get('/usage-status', optionalAuth, async (req, res) => {
 // Problem: middleware `use` doesn't take regex nicely in router sometimes.
 // Easier to apply to each route or use router.use('/process/*', ...)
 
-router.use('/process', optionalAuth); 
+router.use('/process', optionalAuth);
 router.use('/process', checkRateLimit);
 
 router.get('/', (req, res) => {
-  res.json({ message: "MarvelPDF Node.js Backend Running" });
+    res.json({ message: "MarvelPDF Node.js Backend Running" });
 });
 
 router.get('/health', (req, res) => {
@@ -334,11 +334,11 @@ router.post('/process/merge', express.json(), async (req, res) => {
         }
 
         const pdfBytes = await mergedPdf.save();
-        
+
         // Upload result to S3
         const resultKey = `results/${Date.now()}_${uuidv4()}_merged.pdf`;
         await uploadBuffer(resultKey, Buffer.from(pdfBytes), 'application/pdf');
-        
+
         await logUsage(req, 'Merge PDF');
 
         // Generate download URL
@@ -366,7 +366,7 @@ router.post('/process/split', express.json(), async (req, res) => {
         if (pageIndices.length === 0) {
             return res.status(400).json({ error: "Invalid page range." });
         }
-        
+
         const subPdf = await PDFDocument.create();
         const copiedPages = await subPdf.copyPages(srcDoc, pageIndices);
         copiedPages.forEach((page) => subPdf.addPage(page));
@@ -375,8 +375,8 @@ router.post('/process/split', express.json(), async (req, res) => {
         // Upload Result Directly (No Zip)
         const resultKey = `results/${Date.now()}_${uuidv4()}_split.pdf`;
         await uploadBuffer(resultKey, Buffer.from(subPdfBytes), 'application/pdf');
-        
-        await logUsage(req, 'Split PDF'); 
+
+        await logUsage(req, 'Split PDF');
 
         const downloadUrl = await getDownloadUrl(resultKey);
         res.json({ downloadUrl });
@@ -392,7 +392,7 @@ router.post('/process/protect', express.json(), async (req, res) => {
     try {
         const { key, password } = req.body;
         if (!key || !password) return res.status(400).json({ error: "File and password required." });
-        
+
         const buffer = await downloadToBuffer(key);
         const pdfDoc = await PDFDocument.load(buffer);
         pdfDoc.encrypt({
@@ -407,12 +407,12 @@ router.post('/process/protect', express.json(), async (req, res) => {
         });
 
         const pdfBytes = await pdfDoc.save();
-        
+
         const resultKey = `results/${Date.now()}_${uuidv4()}_protected.pdf`;
         await uploadBuffer(resultKey, Buffer.from(pdfBytes), 'application/pdf');
 
-        await logUsage(req, 'Protect PDF'); 
-        
+        await logUsage(req, 'Protect PDF');
+
         const downloadUrl = await getDownloadUrl(resultKey);
         res.json({ downloadUrl });
     } catch (e) {
@@ -426,19 +426,19 @@ router.post('/process/unlock', express.json(), async (req, res) => {
     try {
         const { key, password } = req.body;
         if (!key || !password) return res.status(400).json({ error: "File and password required." });
-        
+
         const buffer = await downloadToBuffer(key);
         // Attempt load with password
         const pdfDoc = await PDFDocument.load(buffer, { password });
-        
+
         // Save without changes = removes encryption
         const pdfBytes = await pdfDoc.save();
-        
+
         const resultKey = `results/${Date.now()}_${uuidv4()}_unlocked.pdf`;
         await uploadBuffer(resultKey, Buffer.from(pdfBytes), 'application/pdf');
 
         await logUsage(req, 'Unlock PDF');
-        
+
         const downloadUrl = await getDownloadUrl(resultKey);
         res.json({ downloadUrl });
     } catch (e) {
@@ -452,25 +452,79 @@ router.post('/process/compress', express.json(), async (req, res) => {
     try {
         const { key } = req.body;
         if (!key) return res.status(400).json({ error: "File required." });
-        
+
         const buffer = await downloadToBuffer(key);
-        const pdfDoc = await PDFDocument.load(buffer);
-        const compressedPdf = await PDFDocument.create();
-        const copiedPages = await compressedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
-        copiedPages.forEach(p => compressedPdf.addPage(p));
 
-        const pdfBytes = await compressedPdf.save(); // Default includes object streams (compression) 
+        // Use /tmp for Ghostscript (required for Netlify/Lambda)
+        const fs = await import('fs/promises');
+        const path = await import('path');
+        const { exec } = await import('child_process');
+        const util = await import('util');
+        const execAsync = util.promisify(exec);
 
-        const resultKey = `results/${Date.now()}_${uuidv4()}_compressed.pdf`;
-        await uploadBuffer(resultKey, Buffer.from(pdfBytes), 'application/pdf');
+        const inputPath = path.join('/tmp', `input_${Date.now()}_${uuidv4()}.pdf`);
+        const outputPath = path.join('/tmp', `output_${Date.now()}_${uuidv4()}.pdf`);
 
-        await logUsage(req, 'Compress PDF');
+        await fs.writeFile(inputPath, buffer);
 
-        const downloadUrl = await getDownloadUrl(resultKey);
-        res.json({ downloadUrl });
+        // Determine Ghostscript path
+        // Default to 'gs' (system path) for local dev
+        // For Netlify, if we bundle a binary, we might set GS_PATH to that location
+        const gsPath = process.env.GS_PATH || 'gs';
+
+        // Helper to check if file exists
+        const fileExists = async (path) => {
+            try {
+                await fs.access(path);
+                return true;
+            } catch {
+                return false;
+            }
+        };
+
+        // Command: Compress PDF
+        // -dPDFSETTINGS=/ebook (150 dpi) - good balance?
+        // -dPDFSETTINGS=/screen (72 dpi) - max compression?
+        // Let's use /ebook for now as a safe default.
+        const command = `"${gsPath}" -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 -dPDFSETTINGS=/ebook -dNOPAUSE -dQUIET -dBATCH -sOutputFile="${outputPath}" "${inputPath}"`;
+
+        console.log("Executing Ghostscript:", command);
+
+        try {
+            await execAsync(command);
+        } catch (execError) {
+            console.error("Ghostscript execution failed:", execError);
+            // Verify if it failed because 'gs' is missing
+            if (execError.message.includes('not found') || execError.code === 127) {
+                // Fallback or specific error
+                return res.status(500).json({ error: "Compression service unavailable (gs missing)." });
+            }
+            throw execError;
+        }
+
+        if (await fileExists(outputPath)) {
+            const compressedBuffer = await fs.readFile(outputPath);
+
+            // Upload result
+            const resultKey = `results/${Date.now()}_${uuidv4()}_compressed.pdf`;
+            await uploadBuffer(resultKey, compressedBuffer, 'application/pdf');
+
+            await logUsage(req, 'Compress PDF');
+
+            const downloadUrl = await getDownloadUrl(resultKey);
+
+            // Cleanup
+            await fs.unlink(inputPath).catch(() => { });
+            await fs.unlink(outputPath).catch(() => { });
+
+            res.json({ downloadUrl });
+        } else {
+            throw new Error("Output file not generated by Ghostscript");
+        }
+
     } catch (e) {
-        console.error(e);
-        res.status(500).json({ error: "Failed." });
+        console.error("Compression Error:", e);
+        res.status(500).json({ error: "Failed to compress PDF." });
     }
 });
 
@@ -480,7 +534,7 @@ router.post('/process/watermark', express.json(), async (req, res) => {
         const { key, text } = req.body;
         if (!key) return res.status(400).json({ error: "File required." });
         const watermarkText = text || "CONFIDENTIAL";
-        
+
         const buffer = await downloadToBuffer(key);
         const pdfDoc = await PDFDocument.load(buffer);
         const pages = pdfDoc.getPages();
@@ -490,7 +544,7 @@ router.post('/process/watermark', express.json(), async (req, res) => {
             const { width, height } = page.getSize();
             const fontSize = 50;
             const textWidth = font.widthOfTextAtSize(watermarkText, fontSize);
-            
+
             page.drawText(watermarkText, {
                 x: width / 2 - textWidth / 2,
                 y: height / 2,
@@ -502,12 +556,12 @@ router.post('/process/watermark', express.json(), async (req, res) => {
         });
 
         const pdfBytes = await pdfDoc.save();
-        
+
         const resultKey = `results/${Date.now()}_${uuidv4()}_watermarked.pdf`;
         await uploadBuffer(resultKey, Buffer.from(pdfBytes), 'application/pdf');
 
         await logUsage(req, 'Watermark PDF');
-        
+
         const downloadUrl = await getDownloadUrl(resultKey);
         res.json({ downloadUrl });
     } catch (e) {
@@ -522,7 +576,7 @@ router.post('/process/page-numbers', express.json(), async (req, res) => {
         const { key, position } = req.body;
         if (!key) return res.status(400).json({ error: "File required." });
         const pos = position || 'bottom';
-        
+
         const buffer = await downloadToBuffer(key);
         const pdfDoc = await PDFDocument.load(buffer);
         const pages = pdfDoc.getPages();
@@ -533,10 +587,10 @@ router.post('/process/page-numbers', express.json(), async (req, res) => {
             const text = `${idx + 1}`;
             const fontSize = 12;
             const textWidth = font.widthOfTextAtSize(text, fontSize);
-            
+
             let x = 0, y = 20;
 
-            switch(pos) {
+            switch (pos) {
                 case 'top': x = width / 2 - textWidth / 2; y = height - 20; break;
                 case 'bottom-left': x = 20; y = 20; break;
                 case 'bottom-right': x = width - textWidth - 20; y = 20; break;
@@ -547,12 +601,12 @@ router.post('/process/page-numbers', express.json(), async (req, res) => {
         });
 
         const pdfBytes = await pdfDoc.save();
-        
+
         const resultKey = `results/${Date.now()}_${uuidv4()}_numbered.pdf`;
         await uploadBuffer(resultKey, Buffer.from(pdfBytes), 'application/pdf');
 
         await logUsage(req, 'Page Numbers');
-        
+
         const downloadUrl = await getDownloadUrl(resultKey);
         res.json({ downloadUrl });
     } catch (e) {
@@ -566,27 +620,27 @@ router.post('/process/jpg-to-pdf', express.json(), async (req, res) => {
     try {
         const { keys } = req.body;
         if (!keys || keys.length === 0) return res.status(400).json({ error: "Files required." });
-        
+
         const pdfDoc = await PDFDocument.create();
-        
+
         for (const key of keys) {
             const buffer = await downloadToBuffer(key);
             // Detect mime based on buffer or key? Ideally we pass metadata.
             // But we can check magic bytes or assume from key extension or just try/catch format.
             // Let's rely on magic bytes check or try both.
-            
+
             let image;
             try {
                 image = await pdfDoc.embedJpg(buffer);
             } catch (e) {
                 try {
-                     image = await pdfDoc.embedPng(buffer);
+                    image = await pdfDoc.embedPng(buffer);
                 } catch (e2) {
-                     console.error("Not a JPG or PNG");
-                     continue; 
+                    console.error("Not a JPG or PNG");
+                    continue;
                 }
             }
-            
+
             const page = pdfDoc.addPage([image.width, image.height]);
             page.drawImage(image, {
                 x: 0,
@@ -597,12 +651,12 @@ router.post('/process/jpg-to-pdf', express.json(), async (req, res) => {
         }
 
         const pdfBytes = await pdfDoc.save();
-        
+
         const resultKey = `results/${Date.now()}_${uuidv4()}_converted.pdf`;
         await uploadBuffer(resultKey, Buffer.from(pdfBytes), 'application/pdf');
 
         await logUsage(req, 'Jpg to PDF');
-        
+
         const downloadUrl = await getDownloadUrl(resultKey);
         res.json({ downloadUrl });
     } catch (e) {
@@ -616,9 +670,9 @@ router.post('/process/edit', express.json(), async (req, res) => {
     try {
         const { key, operations } = req.body;
         if (!key || !operations) return res.status(400).json({ error: "File and ops required." });
-        
+
         const ops = (typeof operations === 'string') ? JSON.parse(operations) : operations;
-        
+
         const buffer = await downloadToBuffer(key);
         const pdfDoc = await PDFDocument.load(buffer);
         const pages = pdfDoc.getPages();
@@ -639,10 +693,10 @@ router.post('/process/edit', express.json(), async (req, res) => {
                 } else {
                     continue;
                 }
-                
+
                 let image;
-                 // Try PNG first (common for overlays), then JPG
-                 try {
+                // Try PNG first (common for overlays), then JPG
+                try {
                     image = await pdfDoc.embedPng(imageBytes);
                 } catch (e) {
                     try {
@@ -656,7 +710,7 @@ router.post('/process/edit', express.json(), async (req, res) => {
                 // Calculate dimensions to fit page exactly
                 const pageWidth = page.getWidth();
                 const pageHeight = page.getHeight();
-                
+
                 // If it's an overlay (key exists), force it to cover page
                 let drawOpts = {
                     x: 0,
@@ -666,7 +720,7 @@ router.post('/process/edit', express.json(), async (req, res) => {
                 };
 
                 if (op.key) {
-                     drawOpts = {
+                    drawOpts = {
                         x: 0,
                         y: 0,
                         width: pageWidth,
@@ -676,19 +730,19 @@ router.post('/process/edit', express.json(), async (req, res) => {
 
                 page.drawImage(image, drawOpts);
             } else if (op.type === 'text') {
-                 const font = await pdfDoc.embedFont("Helvetica");
-                 page.drawText(op.text, {
-                     x: op.x || 0,
-                     y: op.y || 0,
-                     size: op.fontSize || 12,
-                     color: op.color ? undefined : undefined,
-                     font: font
-                 });
+                const font = await pdfDoc.embedFont("Helvetica");
+                page.drawText(op.text, {
+                    x: op.x || 0,
+                    y: op.y || 0,
+                    size: op.fontSize || 12,
+                    color: op.color ? undefined : undefined,
+                    font: font
+                });
             }
         }
 
         const pdfBytes = await pdfDoc.save();
-        
+
         const resultKey = `results/${Date.now()}_${uuidv4()}_edited.pdf`;
         await uploadBuffer(resultKey, Buffer.from(pdfBytes), 'application/pdf');
 
@@ -706,47 +760,47 @@ router.post('/process/edit', express.json(), async (req, res) => {
 // WORD TO PDF
 router.post('/process/word-to-pdf', express.json(), async (req, res) => {
     try {
-         const { key } = req.body;
-         if (!key) return res.status(400).json({ error: "File required." });
-         
-         const buffer = await downloadToBuffer(key);
-         
-         const { extractRawText } = await import('mammoth');
-         const result = await extractRawText({ buffer: buffer });
-         const text = result.value;
+        const { key } = req.body;
+        if (!key) return res.status(400).json({ error: "File required." });
 
-         const pdfDoc = await PDFDocument.create();
-         let page = pdfDoc.addPage();
-         const { width, height } = page.getSize();
-         const font = await pdfDoc.embedFont("Helvetica");
-         const fontSize = 11;
-         
-         const lines = text.split('\n');
-         let y = height - 50;
-         const margin = 50;
+        const buffer = await downloadToBuffer(key);
 
-         lines.forEach(line => {
-             if (y < 50) { page = pdfDoc.addPage(); y = height - 50; }
-             
-             const maxChars = 80;
-             for (let i = 0; i < line.length; i += maxChars) {
-                 if (y < 50) { page = pdfDoc.addPage(); y = height - 50; }
-                 const segment = line.substring(i, i + maxChars);
-                 const safeSegment = segment.replace(/[^\x00-\x7F]/g, "?"); 
-                 page.drawText(safeSegment, { x: margin, y, size: fontSize, font });
-                 y -= 15;
-             }
-         });
+        const { extractRawText } = await import('mammoth');
+        const result = await extractRawText({ buffer: buffer });
+        const text = result.value;
 
-         const pdfBytes = await pdfDoc.save();
-         
-         const resultKey = `results/${Date.now()}_${uuidv4()}_word.pdf`;
-         await uploadBuffer(resultKey, Buffer.from(pdfBytes), 'application/pdf');
+        const pdfDoc = await PDFDocument.create();
+        let page = pdfDoc.addPage();
+        const { width, height } = page.getSize();
+        const font = await pdfDoc.embedFont("Helvetica");
+        const fontSize = 11;
 
-         await logUsage(req, 'Word to PDF');
-         
-         const downloadUrl = await getDownloadUrl(resultKey);
-         res.json({ downloadUrl });
+        const lines = text.split('\n');
+        let y = height - 50;
+        const margin = 50;
+
+        lines.forEach(line => {
+            if (y < 50) { page = pdfDoc.addPage(); y = height - 50; }
+
+            const maxChars = 80;
+            for (let i = 0; i < line.length; i += maxChars) {
+                if (y < 50) { page = pdfDoc.addPage(); y = height - 50; }
+                const segment = line.substring(i, i + maxChars);
+                const safeSegment = segment.replace(/[^\x00-\x7F]/g, "?");
+                page.drawText(safeSegment, { x: margin, y, size: fontSize, font });
+                y -= 15;
+            }
+        });
+
+        const pdfBytes = await pdfDoc.save();
+
+        const resultKey = `results/${Date.now()}_${uuidv4()}_word.pdf`;
+        await uploadBuffer(resultKey, Buffer.from(pdfBytes), 'application/pdf');
+
+        await logUsage(req, 'Word to PDF');
+
+        const downloadUrl = await getDownloadUrl(resultKey);
+        res.json({ downloadUrl });
     } catch (e) {
         console.error(e);
         res.status(500).json({ error: "Failed to convert Word to PDF." });
@@ -758,9 +812,9 @@ router.post('/process/pdf-to-word', express.json(), async (req, res) => {
     try {
         const { key } = req.body;
         if (!key) return res.status(400).json({ error: "File required." });
-        
+
         const buffer = await downloadToBuffer(key);
-        
+
         const pdfParse = (await import('pdf-parse')).default;
         const { Document, Packer, Paragraph, TextRun } = await import('docx');
 
@@ -770,7 +824,7 @@ router.post('/process/pdf-to-word', express.json(), async (req, res) => {
         const doc = new Document({
             sections: [{
                 properties: {},
-                children: text.split('\n').map(line => 
+                children: text.split('\n').map(line =>
                     new Paragraph({
                         children: [new TextRun(line)],
                     })
@@ -779,12 +833,12 @@ router.post('/process/pdf-to-word', express.json(), async (req, res) => {
         });
 
         const docxBuffer = await Packer.toBuffer(doc);
-        
+
         const resultKey = `results/${Date.now()}_${uuidv4()}_converted.docx`;
         await uploadBuffer(resultKey, docxBuffer, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-        
+
         await logUsage(req, 'PDF to Word');
-        
+
         const downloadUrl = await getDownloadUrl(resultKey);
         res.json({ downloadUrl });
     } catch (e) {
@@ -798,11 +852,11 @@ router.post('/process/excel-to-pdf', express.json(), async (req, res) => {
     try {
         const { key } = req.body;
         if (!key) return res.status(400).json({ error: "File required." });
-        
+
         const buffer = await downloadToBuffer(key);
-        
+
         const XLSX = await import('xlsx');
-        
+
         const workbook = XLSX.read(buffer, { type: 'buffer' });
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
@@ -811,27 +865,27 @@ router.post('/process/excel-to-pdf', express.json(), async (req, res) => {
         const pdfDoc = await PDFDocument.create();
         let page = pdfDoc.addPage();
         const { width, height } = page.getSize();
-        const font = await pdfDoc.embedFont("Helvetica"); 
+        const font = await pdfDoc.embedFont("Helvetica");
         const fontSize = 10;
-        
+
         const lines = csv.split('\n');
         let y = height - 50;
         const margin = 40;
 
         lines.forEach(line => {
-             if (y < 50) { page = pdfDoc.addPage(); y = height - 50; }
-             const safeLine = line.replace(/,/g, "   ").substring(0, 90).replace(/[^\x00-\x7F]/g, "?");
-             page.drawText(safeLine, { x: margin, y, size: fontSize, font });
-             y -= 12;
+            if (y < 50) { page = pdfDoc.addPage(); y = height - 50; }
+            const safeLine = line.replace(/,/g, "   ").substring(0, 90).replace(/[^\x00-\x7F]/g, "?");
+            page.drawText(safeLine, { x: margin, y, size: fontSize, font });
+            y -= 12;
         });
 
         const pdfBytes = await pdfDoc.save();
-        
+
         const resultKey = `results/${Date.now()}_${uuidv4()}_converted.pdf`;
         await uploadBuffer(resultKey, Buffer.from(pdfBytes), 'application/pdf');
 
         await logUsage(req, 'Excel to PDF');
-        
+
         const downloadUrl = await getDownloadUrl(resultKey);
         res.json({ downloadUrl });
 
@@ -846,28 +900,28 @@ router.post('/process/pdf-to-excel', express.json(), async (req, res) => {
     try {
         const { key } = req.body;
         if (!key) return res.status(400).json({ error: "File required." });
-        
+
         const buffer = await downloadToBuffer(key);
         const pdfParse = (await import('pdf-parse')).default;
         const XLSX = await import('xlsx');
 
         const data = await pdfParse(buffer);
         const text = data.text;
-        
+
         // Strategy: Naive line split. Ideally we'd detect tables.
         const rows = text.split('\n').map(line => [line]);
-        
+
         const wb = XLSX.utils.book_new();
         const ws = XLSX.utils.aoa_to_sheet(rows);
         XLSX.utils.book_append_sheet(wb, ws, "PDF Data");
-        
+
         const xlsxBuffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
-         
+
         const resultKey = `results/${Date.now()}_${uuidv4()}_converted.xlsx`;
         await uploadBuffer(resultKey, xlsxBuffer, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
 
         await logUsage(req, 'PDF to Excel');
-        
+
         const downloadUrl = await getDownloadUrl(resultKey);
         res.json({ downloadUrl });
     } catch (e) {
@@ -881,34 +935,34 @@ router.post('/process/pdf-to-pptx', express.json(), async (req, res) => {
     try {
         const { key } = req.body;
         if (!key) return res.status(400).json({ error: "File required." });
-        
+
         const buffer = await downloadToBuffer(key);
-        
+
         const pdfParse = (await import('pdf-parse')).default;
         const pptxgen = (await import('pptxgenjs')).default;
 
         const data = await pdfParse(buffer);
-        
+
         const pptx = new pptxgen();
         let slide = pptx.addSlide();
-        
+
         const charsPerSlide = 1000;
         const text = data.text;
-        
+
         for (let i = 0; i < text.length; i += charsPerSlide) {
             if (i > 0) slide = pptx.addSlide();
             const chunk = text.substring(i, i + charsPerSlide).replace(/[^\x00-\x7F]/g, "");
             slide.addText(chunk, { x: 0.5, y: 0.5, w: '90%', h: '90%', fontSize: 12, color: '363636' });
         }
-        
+
         // pptxgen buffer output requires 'nodebuffer'
         const pptxBuffer = await pptx.write({ outputType: 'nodebuffer' });
-        
+
         const resultKey = `results/${Date.now()}_${uuidv4()}_converted.pptx`;
         await uploadBuffer(resultKey, pptxBuffer, 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
 
         await logUsage(req, 'PDF to Powerpoint');
-        
+
         const downloadUrl = await getDownloadUrl(resultKey);
         res.json({ downloadUrl });
 
@@ -922,7 +976,7 @@ router.post('/process/pdf-to-pptx', express.json(), async (req, res) => {
 
 // PPTX TO PDF
 router.post('/process/pptx-to-pdf', async (req, res) => {
-     res.status(400).send("PPTX to PDF conversion is not supported in this serverless environment.");
+    res.status(400).send("PPTX to PDF conversion is not supported in this serverless environment.");
 });
 
 // ROTATE PDF
@@ -930,25 +984,25 @@ router.post('/process/rotate', express.json(), async (req, res) => {
     try {
         const { key, angle } = req.body;
         if (!key) return res.status(400).json({ error: "File required." });
-        
+
         const rotationAngle = parseInt(angle) || 90;
-        
+
         const buffer = await downloadToBuffer(key);
         const pdfDoc = await PDFDocument.load(buffer);
         const pages = pdfDoc.getPages();
-        
+
         pages.forEach(page => {
             const currentRotation = page.getRotation().angle;
             page.setRotation(degrees(currentRotation + rotationAngle));
         });
-        
+
         const pdfBytes = await pdfDoc.save();
-        
+
         const resultKey = `results/${Date.now()}_${uuidv4()}_rotated.pdf`;
         await uploadBuffer(resultKey, Buffer.from(pdfBytes), 'application/pdf');
 
         await logUsage(req, 'Rotate PDF');
-        
+
         const downloadUrl = await getDownloadUrl(resultKey);
         res.json({ downloadUrl });
     } catch (e) {
@@ -966,10 +1020,10 @@ router.post('/process/pdf-to-jpg', express.json(), async (req, res) => {
 
 export const handler = serverless(app, {
     binary: [
-        'application/pdf', 
-        'application/zip', 
+        'application/pdf',
+        'application/zip',
         'multipart/form-data',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'application/vnd.openxmlformats-officedocument.presentationml.presentation',
         'image/*'
