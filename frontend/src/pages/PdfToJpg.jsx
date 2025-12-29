@@ -44,12 +44,7 @@ const PdfToJpg = () => {
         // 3. Download Result
         // Note: Backend currently returns 400 for this tool, so this part won't be reached until backend is enabled.
         const { downloadUrl } = response.data;
-        const link = document.createElement('a');
-        link.href = downloadUrl;
-        link.setAttribute('download', 'images.zip');
-        document.body.appendChild(link);
-        link.click();
-        link.parentNode.removeChild(link);
+        window.open(downloadUrl, '_blank');
         window.dispatchEvent(new Event('usage-updated'));
     } catch (err) {
         console.error("PDF to JPG error:", err);

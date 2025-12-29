@@ -190,12 +190,7 @@ const EditPDF = () => {
         
         // 5. Download
         const { downloadUrl } = response.data;
-        const link = document.createElement('a');
-        link.href = downloadUrl;
-        link.setAttribute('download', 'edited.pdf');
-        document.body.appendChild(link);
-        link.click();
-        link.parentNode.removeChild(link);
+        window.open(downloadUrl, '_blank');
         window.dispatchEvent(new Event('usage-updated'));
     } catch (err) {
         console.error("Edit PDF Error:", err);

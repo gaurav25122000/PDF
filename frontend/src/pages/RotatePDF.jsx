@@ -44,12 +44,7 @@ const RotatePDF = () => {
 
         // 3. Download Result
         const { downloadUrl } = response.data;
-        const link = document.createElement('a');
-        link.href = downloadUrl;
-        link.setAttribute('download', 'rotated.pdf');
-        document.body.appendChild(link);
-        link.click();
-        link.parentNode.removeChild(link);
+        window.open(downloadUrl, '_blank');
         window.dispatchEvent(new Event('usage-updated'));
     } catch (err) {
         console.error("Rotate error:", err);

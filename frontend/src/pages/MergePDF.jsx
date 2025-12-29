@@ -56,12 +56,7 @@ const MergePDF = () => {
         
         // 3. Download result
         const { downloadUrl } = response.data;
-        const link = document.createElement('a');
-        link.href = downloadUrl;
-        link.setAttribute('download', 'merged.pdf'); // Browser might prefer Content-Disposition
-        document.body.appendChild(link);
-        link.click();
-        link.parentNode.removeChild(link);
+        window.open(downloadUrl, '_blank');
         
         window.dispatchEvent(new Event('usage-updated')); 
     } catch (err) {
