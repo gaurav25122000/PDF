@@ -1,5 +1,7 @@
+import requests
+
 def handler(event, context):
     return {
         "statusCode": 200,
-        "body": "Hello from Netlify Functions!"
+        "body": f"Hello from Netlify Functions! Requests version: {requests.__version__}"
     }
