@@ -119,48 +119,107 @@ const EditPDF = () => {
       ];
   };
 
+  // Helper: Consolidate PDF text items into lines
+  const consolidateTextItems = (items, viewport) => {
+      // 1. Sort by Y (descending for PDF bottom-up, but we used transformed coords so they might be top-down? 
+      //    Actually, let's normalize everything first.
+      
+      const parsedItems = items.map(item => {
+          const tx = multiplyTransformMatrices(viewport.transform, item.transform);
+          const fontHeight = Math.sqrt((tx[2] * tx[2]) + (tx[3] * tx[3]));
+          const width = item.width * viewport.scale; // Approx width
+          // tx[5] is Y. In PDF structure, Y increases upwards. 
+          // But our viewport transform flips it to Canvas (Y increases downwards).
+          // So tx[5] is the Canvas Y coordinate of the baseline (roughly).
+          
+          return {
+              str: item.str,
+              x: tx[4],
+              y: tx[5], // Baseline Y
+              width: width,
+              height: fontHeight,
+              fontHeight: fontHeight,
+              fontName: item.fontName,
+              hasEOL: item.hasEOL
+          };
+      });
+
+      // 2. Sort Primary by Y, Secondary by X
+      // Grouping tolerance for Y: 20% of font height? or fixed pixels (e.g. 5px)
+      parsedItems.sort((a, b) => {
+          if (Math.abs(a.y - b.y) < (Math.min(a.fontHeight, b.fontHeight) * 0.5)) {
+              return a.x - b.x;
+          }
+          return a.y - b.y;
+      });
+
+      const lines = [];
+      let currentLine = null;
+
+      parsedItems.forEach(item => {
+          if (!currentLine) {
+              currentLine = { ...item, items: [item] };
+              return;
+          }
+
+          // Check if on same line (Y close enough)
+          const yDiff = Math.abs(item.y - currentLine.y);
+          const sameLine = yDiff < (currentLine.fontHeight * 0.5);
+          
+          // Check if adjacent (X distance not too huge)
+          // Allow some gap for spaces, but not huge columns
+          const xDiff = item.x - (currentLine.x + currentLine.width);
+          // If xDiff is very large, it might be a separate column or far text.
+          // Let's assume a "space" width is roughly fontHeight * 0.3
+          // We allow up to 3-4 spaces? 
+          const isAdjacent = xDiff < (currentLine.fontHeight * 4) && xDiff > -(currentLine.fontHeight * 0.5); // Allow slight overlap
+
+          if (sameLine && isAdjacent) {
+              // Merge
+              // Handle space between chunks if needed?
+              // PDF extraction often strips spaces between chunks if they are positioned
+              // We might need to insert a space if the gap is significant (> 0.2em)
+              const gap = item.x - (currentLine.x + currentLine.width);
+              if (gap > (currentLine.fontHeight * 0.15) && !currentLine.str.endsWith(' ') && !item.str.startsWith(' ')) {
+                  currentLine.str += ' ';
+              }
+              
+              currentLine.str += item.str;
+              currentLine.width = (item.x + item.width) - currentLine.x;
+              // Update Y/Height to be max/avg? Keep first one's Y usually best for baseline alignment
+              currentLine.items.push(item);
+          } else {
+              // Push old line, start new
+              lines.push(currentLine);
+              currentLine = { ...item, items: [item] };
+          }
+      });
+      if (currentLine) lines.push(currentLine);
+
+      return lines.map(line => ({
+          text: line.str,
+          x: line.x,
+          y: line.y - line.fontHeight, // Convert baseline to top-left approximately
+          width: line.width,
+          height: line.fontHeight,
+          fontSize: line.fontHeight, // Use the font height as font size
+          fontFamily: line.fontName
+      }));
+  };
+
   const extractTextLayout = async (page, viewport) => {
       try {
           const textContent = await page.getTextContent();
           
-          // Basic line grouping (simple y-coordinate clustering)
+          // Filter empty items
           const items = textContent.items.filter(item => item.str.trim().length > 0);
           
-          const blocks = items.map(item => {
-              const tx = multiplyTransformMatrices(viewport.transform, item.transform);
-              // tx is [scaleX, skewY, skewX, scaleY, posX, posY]
-              
-              // Calculate font height based on transform
-              const fontHeight = Math.sqrt((tx[2] * tx[2]) + (tx[3] * tx[3]));
-              
-              // Width needs to be scaled
-              // item.width is in unscaled PDF units
-              const width = item.width * viewport.scale;
+          // Consolidate into lines
+          const blocks = consolidateTextItems(items, viewport);
 
-              // Angle calculation (if needed in future, for now assume 0)
-              
-              return {
-                  text: item.str,
-                  x: tx[4],
-                  y: tx[5] - fontHeight, // PDF coords are bottom-left, Canvas top-left. But here we are using viewport transform which handles it? 
-                  // Wait, pdf.js viewport.transform converts PDF point to Canvas pixel.
-                  // PDF (0,0) is bottom-left. Canvas (0,0) is top-left.
-                  // The viewport transform provided by PDF.js handles this flip.
-                  // However, item.transform provides [a,b,c,d,e,f] where (e,f) is the origin of the text baseline.
-                  // In Canvas, fillText draws from baseline if textBaseline='alphabetic'.
-                  // Simply using the transformed (x,y) might place it at baseline.
-                  // Bounding box top-left needs -fontHeight (approx).
-                  
-                  width: width,
-                  height: fontHeight,
-                  fontSize: fontHeight,
-                  fontFamily: item.fontName // We might need to map this later
-              };
-          });
-
-          console.log(`Extracted ${blocks.length} text blocks for page ${page.pageNumber}`);
+          console.log(`Extracted ${blocks.length} text lines for page ${page.pageNumber}`);
           setTextBlocks(blocks);
-          return blocks; // Return for immediate usage
+          return blocks; 
 
       } catch (e) {
           console.error("Failed to extract text:", e);
@@ -312,17 +371,31 @@ const EditPDF = () => {
                         type: 'text_ghost', 
                         text: block.text,
                         fontSize: block.fontSize,
+                        fontFamily: block.fontFamily,
                         blockIndex: index
                     }
                 });
                 
-                // Add hover effect?
-                // Fabric doesn't support 'hover' style natively efficiently for many objects without custom logic
-                // But we can rely on cursor change.
+                // Add hover effect via event listeners (see below)
                 
                 canvas.add(ghost);
             });
         }
+
+        // Add Hover Effects for Ghosts
+        canvas.on('mouse:over', (e) => {
+            if (e.target && e.target.data && e.target.data.type === 'text_ghost') {
+                e.target.set('fill', 'rgba(0, 0, 0, 0.05)');
+                canvas.requestRenderAll();
+            }
+        });
+
+        canvas.on('mouse:out', (e) => {
+            if (e.target && e.target.data && e.target.data.type === 'text_ghost') {
+                e.target.set('fill', 'transparent');
+                canvas.requestRenderAll();
+            }
+        });
 
         // Restore state if exists
         if (pageStates.current[currentPage]) {
@@ -426,8 +499,17 @@ const EditPDF = () => {
       const canvas = fabricCanvasRef.current;
       if (!canvas) return;
 
-      const { text, fontSize } = ghost.data;
+      const { text, fontSize, fontFamily } = ghost.data;
       
+      // Basic Font Mapping
+      let mappedFont = 'Helvetica'; // Default
+      if (fontFamily) {
+          const lower = fontFamily.toLowerCase();
+          if (lower.includes('times') || lower.includes('serif')) mappedFont = 'Times New Roman';
+          else if (lower.includes('courier') || lower.includes('mono')) mappedFont = 'Courier New';
+          else if (lower.includes('arial')) mappedFont = 'Arial';
+      }
+
       // 1. Create Whiteout (Redaction)
       const whiteout = new fabric.Rect({
           left: ghost.left,
@@ -445,7 +527,7 @@ const EditPDF = () => {
           left: ghost.left,
           top: ghost.top, // Adjustment for baseline might be needed
           fontSize: fontSize,
-          fontFamily: 'Helvetica', // Default fallback
+          fontFamily: mappedFont, // Use mapped font
           fill: 'black',
           width: ghost.width,
           data: { type: 'edited_text', original: text }
@@ -468,7 +550,7 @@ const EditPDF = () => {
   const handleMouseMove = (e, canvas) => {
        // Handle dragging for rectangle creation
       if (isDragging.current && activeShape.current) {
-          const pointer = canvas.getPointer(e.e);
+          const pointer = canvas.getScenePoint(e.e);
           const w = Math.abs(pointer.x - dragStart.current.x);
           const h = Math.abs(pointer.y - dragStart.current.y);
           activeShape.current.set({
@@ -488,7 +570,7 @@ const EditPDF = () => {
 
       if (['link', 'form_text', 'form_checkbox'].includes(currentTool)) {
           isDragging.current = true;
-          const pointer = canvas.getPointer(e.e);
+          const pointer = canvas.getScenePoint(e.e);
           dragStart.current = { x: pointer.x, y: pointer.y };
 
           const rect = new fabric.Rect({
@@ -513,7 +595,7 @@ const EditPDF = () => {
       // OR we can rely on standard fabric selection?
       
       if (['highlight', 'strikeout'].includes(currentTool)) {
-          const pointer = canvas.getPointer(e.e);
+          const pointer = canvas.getScenePoint(e.e);
           // Find intersecting ghost
           const ghost = canvas.getObjects().find(obj => 
               obj.data && obj.data.type === 'text_ghost' && 
