@@ -1,5 +1,5 @@
 import express from 'express';
-import fetch from 'node-fetch';
+
 import serverless from 'serverless-http';
 import cors from 'cors';
 import multer from 'multer';
@@ -15,21 +15,8 @@ app.use(express.json({ limit: '500mb' }));
 app.use(express.urlencoded({ limit: '500mb', extended: true }));
 const router = express.Router();
 
-// DEBUG: Catch-all to see what's happening if no route matches
+// DEBUG: Catch-all logger
 router.all('*', (req, res, next) => {
-    // Check if we have a matching route layer roughly (optional, but let's just log or pass through)
-    // Actually, we want the specific routes to take precedence. 
-    // Express runs middleware in order. 
-    // If I put this at the TOP, it intercepts everything. 
-    // I should put the catch-all at the BOTTOM of the router?
-    // No, `router.all` matches everything. 
-    // If I want it to catch "Not Found", it should be LAST.
-    // BUT, right now it's used for debugging "Incoming Request".
-    // Let's change it to log-only middleware or remove it?
-    // User response showed it returned JSON. So it terminated the request.
-    // If I want to restore function, I MUST remove this terminating catch-all from the TOP 
-    // OR make it call `next()`.
-    // I'll make it a logger for now, call next()
     console.log(`Incoming: ${req.method} ${req.url}`);
     next();
 });
@@ -195,9 +182,6 @@ const fileExists = async (path) => {
         return false;
     }
 };
-
-// Helper to get Ghostscript Path
-// REMOVED (Replaced by process_pdf.py)
 
 // --- AUTH ROUTES ---
 
@@ -715,16 +699,11 @@ const runPythonProcess = async (command, inputPath, outputPath, password) => {
     };
     
     // 2. Call Python Function
-    // We must use the absolute URL for internal function-to-function calls if they are on the same domain?
-    // Actually, network calls inside Netlify usually need full URL.
-    // process.env.URL is the Deploy URL (e.g. https://foo.netlify.app).
-    
-    // Fallback logic for URL
+    // We try to find the correct Base URL for the environment.
     let baseUrl = process.env.URL;
     if (!baseUrl) baseUrl = 'http://localhost:8888'; // Dev default
     
-    // If we are in valid Netlify environment, use that.
-    // Note: If this is a deploy preview, we might want DEPLOY_PRIME_URL
+    // Use DEPLOY_PRIME_URL for deploy previews/branches if avail
     if (process.env.DEPLOY_PRIME_URL) baseUrl = process.env.DEPLOY_PRIME_URL;
 
     const processorUrl = `${baseUrl}/.netlify/functions/processor`;
@@ -747,16 +726,8 @@ const runPythonProcess = async (command, inputPath, outputPath, password) => {
              throw new Error(`Python Status ${response.status}: ${errText}`);
         }
         
-        const respJson = await response.json(); // { statusCode: 200, body: "..." }
-        // Netlify Functions return: { statusCode, body } structure IF invoked directly?
-        // Wait, if we call via HTTP URL, we get the HTTP response directly.
-        // The processor python returns { statusCode, body: string }.
-        // So response.json() will be that object? 
-        // No, if we call the http endpoint, Netlify unpacks the response.
-        // The `body` in the Python return value becomes the HTTP response body.
-        // So `respJson` will be the JSON parsed from Python's body string.
-        
-        const data = respJson; // The body content parsed as JSON
+        const respJson = await response.json(); 
+        const data = respJson; 
         
         if (outputPath && outputKey) {
             // Python said success. Download result from S3 to outputPath.
