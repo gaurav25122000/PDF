@@ -10,6 +10,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import * as fabric from 'fabric';
 
+
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 const SignPDF = () => {
