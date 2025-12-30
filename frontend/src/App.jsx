@@ -3,11 +3,19 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import Home from './pages/Home'; // Home stays eager for immediate LCP
-import Login from './pages/Login';
-import Signup from './pages/Signup';
 import AuthModalWrapper from './components/AuthModalWrapper';
 import { AuthProvider } from './context/AuthContext';
 import { HelmetProvider } from 'react-helmet-async';
+
+// Lazy Load Static Pages
+const Login = lazy(() => import('./pages/Login'));
+const Signup = lazy(() => import('./pages/Signup'));
+const Privacy = lazy(() => import('./pages/Privacy'));
+const Terms = lazy(() => import('./pages/Terms'));
+const Security = lazy(() => import('./pages/Security'));
+const FAQ = lazy(() => import('./pages/FAQ'));
+const About = lazy(() => import('./pages/About'));
+const Contact = lazy(() => import('./pages/Contact'));
 
 // Lazy Load Tools
 const MergePDF = lazy(() => import('./pages/MergePDF'));
@@ -27,14 +35,6 @@ const PdfToExcel = lazy(() => import('./pages/PdfToExcel'));
 const PdfToPptx = lazy(() => import('./pages/PdfToPptx'));
 const WordToPdf = lazy(() => import('./pages/WordToPdf'));
 const ExcelToPdf = lazy(() => import('./pages/ExcelToPdf'));
-
-// Lazy Load Static Pages
-const Privacy = lazy(() => import('./pages/Privacy'));
-const Terms = lazy(() => import('./pages/Terms'));
-const Security = lazy(() => import('./pages/Security'));
-const FAQ = lazy(() => import('./pages/FAQ'));
-const About = lazy(() => import('./pages/About'));
-const Contact = lazy(() => import('./pages/Contact'));
 
 // Loading component
 const LoadingSpinner = () => (

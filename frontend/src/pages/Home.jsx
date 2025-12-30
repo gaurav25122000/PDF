@@ -1,10 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 // Helmet is handled inside SEO component
 import SEO from '../components/SEO';
 import ToolCard from '../components/ToolCard';
 import UsageBanner from '../components/UsageBanner';
-import Fuse from 'fuse.js';
+// import Fuse from 'fuse.js'; // Removed static import
 import {
   Combine,
   Scissors,
@@ -22,7 +22,10 @@ import {
 
 const Home = () => {
   const [query, setQuery] = useState('');
-  const tools = [
+  const [filteredTools, setFilteredTools] = useState([]);
+  const [fuseInstance, setFuseInstance] = useState(null);
+
+  const tools = useMemo(() => [
     {
       title: "Merge PDF",
       description: "Combine PDFs in the order you want with the easiest PDF merger available.",
@@ -142,18 +145,41 @@ const Home = () => {
       to: "/excel-to-pdf",
       color: "green"
     }
-  ]; // End of tools array
+  ], []); 
 
-  const filteredTools = useMemo(() => {
-      if (!query) return tools;
+  // Initial load: show all tools
+  useEffect(() => {
+    setFilteredTools(tools);
+  }, [tools]);
 
-      const fuse = new Fuse(tools, {
-          keys: ['title', 'description', 'keywords'], // 'keywords' if we add them to tool obj, else just title/desc
-          threshold: 0.3, // 0.0 = perfect match, 1.0 = match anything
-      });
 
-      return fuse.search(query).map(result => result.item);
-  }, [query, tools]);
+  // Dynamic Fuse Loading and Filtering
+  useEffect(() => {
+    if (!query) {
+        setFilteredTools(tools);
+        return;
+    }
+
+    const search = async () => {
+        let fuse = fuseInstance;
+        if (!fuse) {
+            const { default: Fuse } = await import('fuse.js');
+            fuse = new Fuse(tools, {
+                keys: ['title', 'description', 'keywords'], 
+                threshold: 0.3, 
+            });
+            setFuseInstance(fuse);
+        }
+        
+        const results = fuse.search(query).map(result => result.item);
+        setFilteredTools(results);
+    };
+
+    const timeoutId = setTimeout(search, 300); // Debounce
+    return () => clearTimeout(timeoutId);
+
+  }, [query, tools, fuseInstance]);
+
 
   const container = {
     hidden: { opacity: 0 },
