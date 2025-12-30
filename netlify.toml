@@ -1,5 +1,5 @@
 [build]
-  command = "pip install pymupdf && npm install && cd netlify/functions && npm install && cd ../../frontend && npm install && npm run build"
+  command = "npm install && cd netlify/functions && npm install && cd ../../frontend && npm install && npm run build"
   publish = "frontend/dist"
   functions = "netlify/functions"
 
