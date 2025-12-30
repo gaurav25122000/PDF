@@ -8,7 +8,6 @@
 [functions]
   directory = "netlify/functions"
   included_files = ["netlify/functions/bin/gs"]
-  external_node_modules = ["docx"]
 
 [[redirects]]
   from = "/ping"
