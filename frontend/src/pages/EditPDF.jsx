@@ -3,24 +3,26 @@ import { Helmet } from 'react-helmet-async';
 import { useNavigate } from 'react-router-dom';
 import SEO from '../components/SEO';
 import FileUploader from '../components/FileUploader';
+import SignatureModal from '../components/SignatureModal';
 import { 
     File, Loader2, Edit3, Type, Image as ImageIcon, Download, 
     Square, Circle, MousePointer, X, ChevronLeft, ChevronRight,
-    ZoomIn, ZoomOut, Trash2
+    ZoomIn, ZoomOut, Trash2, Highlighter, Strikethrough, Link as LinkIcon, FormInput, CheckSquare, PenTool
 } from 'lucide-react';
 import axios from 'axios';
 import * as pdfjsLib from 'pdfjs-dist';
+import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import * as fabric from 'fabric';
 
 // Configure PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `/pdf.worker.min.mjs`;
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 const EditPDF = () => {
   const navigate = useNavigate();
   const [file, setFile] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(false); // eslint-disable-line no-unused-vars
   const [processing, setProcessing] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState(null); // eslint-disable-line no-unused-vars
   
   // PDF State
   const [pdfDoc, setPdfDoc] = useState(null);
@@ -30,15 +32,19 @@ const EditPDF = () => {
   const [thumbnails, setThumbnails] = useState({}); // { [pageIndex]: dataUrl }
 
   // Canvas State
-  const canvasRef = useRef(null); // Container for Fabric
+  const canvasRef = useRef(null); // The actual canvas element
+  const canvasWrapperRef = useRef(null); // The wrapper div
   const fabricCanvasRef = useRef(null);
   const [tool, setTool] = useState('select'); // select, text, draw, rect, circle
+  const toolRef = useRef(tool); // Ref to access tool in listeners
   const [color, setColor] = useState('#000000');
   const [strokeWidth, setStrokeWidth] = useState(2);
   
   // Data State
   // Map pageIndex (1-based) to fabric JSON string
-  const pageStates = useRef({}); 
+  const pageStates = useRef({});
+  const [textBlocks, setTextBlocks] = useState([]);
+  const [showSignModal, setShowSignModal] = useState(false);
 
   const handleFiles = (fileList) => {
     if (fileList.length > 0) {
@@ -91,12 +97,51 @@ const EditPDF = () => {
       setThumbnails(thumbs);
   };
 
+  const extractTextLayout = async (page, viewport) => {
+      try {
+          const textContent = await page.getTextContent();
+          const items = textContent.items.filter(item => item.str.trim().length > 0);
+
+          const blocks = items.map(item => {
+              const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
+
+              // tx is [scaleX, skewY, skewX, scaleY, posX, posY]
+              // Font size (approx height)
+              const fontHeight = Math.sqrt((tx[2] * tx[2]) + (tx[3] * tx[3]));
+
+              // Width needs to be scaled
+              // item.width is in unscaled PDF units
+              // viewport.scale is the total scale factor (1.5 * scale)
+              const width = item.width * viewport.scale;
+
+              return {
+                  text: item.str,
+                  x: tx[4],
+                  y: tx[5] - fontHeight, // Move up from baseline
+                  width: width,
+                  height: fontHeight,
+                  fontSize: fontHeight
+              };
+          });
+
+          console.log(`Extracted ${blocks.length} text blocks for page ${page.pageNumber}`);
+          setTextBlocks(blocks);
+
+      } catch (e) {
+          console.error("Failed to extract text:", e);
+          if (e.message && e.message.includes('Util')) {
+              alert("Critical Error: PDF.js Utility missing. Please report this bug.");
+          }
+      }
+  };
+
   // Save current page state before switching
   const saveCurrentPageState = () => {
     if (fabricCanvasRef.current) {
         const json = fabricCanvasRef.current.toJSON();
         console.log(`Saving state for page ${currentPage}`, json);
-        pageStates.current[currentPage] = json;
+        // Save the scale at which these coordinates are valid
+        pageStates.current[currentPage] = { json, scale };
     }
   };
   
@@ -108,13 +153,18 @@ const EditPDF = () => {
           setLoading(true);
           try {
              const page = await pdfDoc.getPage(currentPage);
-             const viewport = page.getViewport({ scale: 1.5 * scale }); // Base quality + zoom
+             // High quality rendering: Use 1.5 multiplier for internal canvas size
+             // But display it at 'scale' size on screen.
+             const QUALITY = 1.5;
+             const viewport = page.getViewport({ scale: scale * QUALITY });
              
-             // Setup Canvas wrapper size
-             const wrapper = document.getElementById('canvas-wrapper');
-             if (wrapper) {
-                 wrapper.style.width = `${viewport.width}px`;
-                 wrapper.style.height = `${viewport.height}px`;
+             // Setup Canvas wrapper size (Display Size)
+             // We want the display size to match the PDF at 'scale'
+             // viewport.width is (scale * 1.5) * PDF_WIDTH
+             // Display width should be (scale * 1) * PDF_WIDTH = viewport.width / 1.5
+             if (canvasWrapperRef.current) {
+                 canvasWrapperRef.current.style.width = `${viewport.width / QUALITY}px`;
+                 canvasWrapperRef.current.style.height = `${viewport.height / QUALITY}px`;
              }
 
              // Render PDF to an image/canvas for background
@@ -125,6 +175,9 @@ const EditPDF = () => {
              await page.render({ canvasContext: context, viewport: viewport }).promise;
              
              const bgDataUrl = canvas.toDataURL();
+
+             // Extract Text Layout for Snapping
+             await extractTextLayout(page, viewport);
 
              // Init Fabric
              initFabric(viewport.width, viewport.height, bgDataUrl);
@@ -140,8 +193,12 @@ const EditPDF = () => {
       render();
       
       return () => {
-          // Cleanup handled in initFabric mostly, but good to ensure
+        if (fabricCanvasRef.current) {
+             fabricCanvasRef.current.dispose();
+             fabricCanvasRef.current = null;
+        }
       };
+      // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pdfDoc, currentPage, scale]);
 
   const initFabric = (width, height, bgDataUrl) => {
@@ -149,11 +206,15 @@ const EditPDF = () => {
 
       try {
         if (fabricCanvasRef.current) {
-            console.log("Disposing existing fabric canvas");
             fabricCanvasRef.current.dispose();
         }
 
-        const canvas = new fabric.Canvas('fabric-canvas', {
+        if (!canvasRef.current) {
+            console.error("Canvas ref is null");
+            return;
+        }
+
+        const canvas = new fabric.Canvas(canvasRef.current, {
             width: width,
             height: height,
         });
@@ -178,7 +239,6 @@ const EditPDF = () => {
                 scaleY: 1
             });
             
-            // Fabric v6+ change: setBackgroundImage is removed, use property
             canvas.backgroundImage = img;
             canvas.requestRenderAll();
             
@@ -191,7 +251,30 @@ const EditPDF = () => {
         // Restore state if exists
         if (pageStates.current[currentPage]) {
             console.log("Restoring page state");
-            canvas.loadFromJSON(pageStates.current[currentPage], () => {
+            const { json, scale: savedScale } = pageStates.current[currentPage];
+
+            // Calculate scale ratio if scale changed
+            // New canvas dimensions are proportional to 'scale' (via viewport)
+            // Saved json coordinates are proportional to 'savedScale'
+            // We need to scale objects by (currentScale / savedScale)
+
+            // Note: initFabric receives 'width' which is viewport.width
+            // viewport.width = PDF_WIDTH * scale * QUALITY
+
+            canvas.loadFromJSON(json).then(() => {
+                if (savedScale && savedScale !== scale) {
+                     const ratio = scale / savedScale;
+                     console.log(`Scaling objects by ratio ${ratio} (from ${savedScale} to ${scale})`);
+
+                     canvas.getObjects().forEach(obj => {
+                         obj.scaleX = obj.scaleX * ratio;
+                         obj.scaleY = obj.scaleY * ratio;
+                         obj.left = obj.left * ratio;
+                         obj.top = obj.top * ratio;
+                         obj.setCoords();
+                     });
+                }
+
                 canvas.requestRenderAll();
                 console.log("Page state restored");
             });
@@ -200,6 +283,18 @@ const EditPDF = () => {
         // Event listeners
         canvas.on('path:created', () => {
            // Auto-save logic could go here
+        });
+
+        canvas.on('mouse:move', (e) => {
+             handleMouseMove(e, canvas);
+        });
+
+        canvas.on('mouse:down', (e) => {
+             handleMouseDown(e, canvas);
+        });
+
+        canvas.on('mouse:up', (e) => {
+             handleMouseUp(e, canvas);
         });
         
         // Apply current tool
@@ -212,10 +307,216 @@ const EditPDF = () => {
 
   // Update tool settings when tool/color changes
   useEffect(() => {
+    toolRef.current = tool; // Sync ref
     if (fabricCanvasRef.current) {
         updateCanvasTool(fabricCanvasRef.current);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tool, color, strokeWidth]);
+
+  const [hoveredTextBlock, setHoveredTextBlock] = useState(null);
+
+  // Drag start position
+  const dragStart = useRef({ x: 0, y: 0 });
+  const isDragging = useRef(false);
+  const activeShape = useRef(null);
+
+  const handleMouseMove = (e, canvas) => {
+       // Handle dragging for rectangle creation
+      if (isDragging.current && activeShape.current) {
+          const pointer = canvas.getPointer(e.e);
+          const w = Math.abs(pointer.x - dragStart.current.x);
+          const h = Math.abs(pointer.y - dragStart.current.y);
+          activeShape.current.set({
+              width: w,
+              height: h,
+              left: Math.min(pointer.x, dragStart.current.x),
+              top: Math.min(pointer.y, dragStart.current.y)
+          });
+          canvas.requestRenderAll();
+          return;
+      }
+
+      if (!['highlight', 'strikeout', 'text_edit'].includes(toolRef.current)) {
+          // Clear preview if switching away
+          if (hoveredTextBlock) setHoveredTextBlock(null);
+          return;
+      }
+
+      const pointer = canvas.getPointer(e.e);
+      // Find intersecting text block
+      // textBlocks: { x, y, width, height }
+
+      const match = textBlocks.find(block =>
+          pointer.x >= block.x &&
+          pointer.x <= block.x + block.width &&
+          pointer.y >= block.y &&
+          pointer.y <= block.y + block.height
+      );
+
+      if (match) {
+           canvas.defaultCursor = 'pointer';
+           setHoveredTextBlock(match);
+
+           // Render Preview (Optional: could render a temp rect here, but maybe just cursor change is enough for now)
+           // Or we can draw a temp rect on a separate upper canvas, but Fabric handles objects.
+           // Let's rely on the click for the action, and maybe a subtle indication?
+
+      } else {
+           canvas.defaultCursor = 'default';
+           setHoveredTextBlock(null);
+      }
+  };
+
+  const handleMouseDown = (e, canvas) => {
+      // Handle Rectangle Drawing Tools (Link, Form)
+      const currentTool = toolRef.current;
+
+      if (['link', 'form_text', 'form_checkbox'].includes(currentTool)) {
+          isDragging.current = true;
+          const pointer = canvas.getPointer(e.e);
+          dragStart.current = { x: pointer.x, y: pointer.y };
+
+          const rect = new fabric.Rect({
+              left: pointer.x,
+              top: pointer.y,
+              width: 0,
+              height: 0,
+              fill: currentTool === 'link' ? 'rgba(0, 0, 255, 0.1)' : 'rgba(200, 200, 200, 0.2)',
+              stroke: currentTool === 'link' ? 'blue' : 'gray',
+              strokeWidth: 1,
+              strokeDashArray: [5, 5]
+          });
+
+          activeShape.current = rect;
+          canvas.add(rect);
+          return;
+      }
+
+      if (!hoveredTextBlock) {
+          if (['highlight', 'strikeout', 'text_edit'].includes(currentTool)) {
+              if (textBlocks.length === 0) {
+                  alert("No selectable text found on this page. These tools require text layer.");
+              }
+          }
+          return;
+      }
+
+      if (currentTool === 'highlight') {
+           const rect = new fabric.Rect({
+                left: hoveredTextBlock.x,
+                top: hoveredTextBlock.y,
+                width: hoveredTextBlock.width,
+                height: hoveredTextBlock.height,
+                fill: 'yellow',
+                opacity: 0.4,
+                selectable: true,
+                evented: true
+           });
+           canvas.add(rect);
+           canvas.setActiveObject(rect);
+      } else if (currentTool === 'strikeout') {
+           const line = new fabric.Line([
+               hoveredTextBlock.x,
+               hoveredTextBlock.y + (hoveredTextBlock.height / 2),
+               hoveredTextBlock.x + hoveredTextBlock.width,
+               hoveredTextBlock.y + (hoveredTextBlock.height / 2)
+           ], {
+               stroke: 'red',
+               strokeWidth: 2,
+               selectable: true
+           });
+           canvas.add(line);
+           canvas.setActiveObject(line);
+      } else if (currentTool === 'text_edit') {
+           // Whiteout original
+           const whiteout = new fabric.Rect({
+                left: hoveredTextBlock.x,
+                top: hoveredTextBlock.y,
+                width: hoveredTextBlock.width,
+                height: hoveredTextBlock.height,
+                fill: 'white',
+                selectable: false,
+                evented: false,
+                data: { type: 'redact' }
+           });
+
+           const text = new fabric.IText(hoveredTextBlock.text, {
+               left: hoveredTextBlock.x,
+               top: hoveredTextBlock.y,
+               fontSize: hoveredTextBlock.fontSize,
+               fontFamily: 'Helvetica', // Try to match?
+               fill: 'black'
+           });
+
+           canvas.add(whiteout);
+           canvas.add(text);
+           canvas.setActiveObject(text);
+           text.enterEditing();
+           text.selectAll();
+           setTool('select');
+      }
+  };
+
+  const handleMouseUp = (e, canvas) => {
+      if (isDragging.current && activeShape.current) {
+          const rect = activeShape.current;
+
+          // If size is too small, make default
+          if (rect.width < 10) rect.set({ width: 100 });
+          if (rect.height < 10) rect.set({ height: 30 });
+
+          canvas.setActiveObject(rect);
+
+          // Prompt for details
+          const currentTool = toolRef.current;
+
+          if (currentTool === 'link') {
+              const url = prompt("Enter Link URL:", "https://");
+              if (url) {
+                  rect.set({
+                      data: { type: 'link', url: url },
+                      stroke: 'blue',
+                      strokeDashArray: null
+                  });
+              } else {
+                  canvas.remove(rect);
+              }
+          } else if (currentTool === 'form_text') {
+              const name = prompt("Enter Field Name:", "Text_Field");
+              if (name) {
+                  rect.set({
+                      data: { type: 'form_text', name: name },
+                      stroke: 'black',
+                      strokeDashArray: null
+                  });
+                  // Add label text inside?
+                  const text = new fabric.Text(name, {
+                      left: rect.left + 5, top: rect.top + 5, fontSize: 10, fill: 'gray', selectable: false
+                  });
+                  canvas.add(text);
+              } else {
+                  canvas.remove(rect);
+              }
+          } else if (currentTool === 'form_checkbox') {
+              const name = prompt("Enter Checkbox Name:", "Checkbox");
+               if (name) {
+                  rect.set({
+                      width: 20, height: 20,
+                      data: { type: 'form_checkbox', name: name },
+                      stroke: 'black',
+                      strokeDashArray: null
+                  });
+              } else {
+                  canvas.remove(rect);
+              }
+          }
+
+          isDragging.current = false;
+          activeShape.current = null;
+          setTool('select');
+      }
+  };
 
   const updateCanvasTool = (canvas) => {
     canvas.isDrawingMode = false;
@@ -227,9 +528,14 @@ const EditPDF = () => {
         canvas.freeDrawingBrush.width = strokeWidth;
         canvas.freeDrawingBrush.color = color;
     } else if (tool === 'text') {
-        // Text is usually click-to-add, handled by click handler or button
         canvas.selection = false;
         canvas.defaultCursor = 'text';
+    } else if (['highlight', 'strikeout', 'text_edit'].includes(tool)) {
+        canvas.selection = false;
+        canvas.defaultCursor = 'pointer';
+    } else if (['link', 'form_text', 'form_checkbox'].includes(tool)) {
+        canvas.selection = false;
+        canvas.defaultCursor = 'crosshair';
     } else {
         canvas.defaultCursor = 'default';
     }
@@ -284,6 +590,18 @@ const EditPDF = () => {
     canvas.add(text);
     canvas.setActiveObject(text);
     setTool('select');
+  };
+
+  const addSignature = (dataUrl) => {
+      if (!fabricCanvasRef.current) return;
+      const ImageClass = fabric.FabricImage || fabric.Image;
+      ImageClass.fromURL(dataUrl).then(img => {
+          img.scaleToWidth(150);
+          fabricCanvasRef.current.add(img);
+          fabricCanvasRef.current.centerObject(img);
+          fabricCanvasRef.current.setActiveObject(img);
+          setTool('select');
+      });
   };
 
   const handleImageUpload = (e) => {
@@ -343,60 +661,180 @@ const EditPDF = () => {
              headers: { 'Content-Type': file.type }
         });
 
-        // 2. Iterate pages and generate overlays
-        // NOTE: pageStates.current keys are strings "1", "2" etc.
-        for (const [pIndexStr, json] of Object.entries(pageStates.current)) {
+        // 2. Iterate pages and generate overlays/ops
+        for (const [pIndexStr, state] of Object.entries(pageStates.current)) {
             const pIndex = parseInt(pIndexStr);
-            const fabricState = json;
+            const { json: fabricState, scale: savedScale } = state;
             
-            // Skip empty states check properly? 
-            // fabric JSON always has "objects": [] if empty.
             if (!fabricState.objects || fabricState.objects.length === 0) continue;
 
-            // Reconstruct canvas off-screen to export image
-            // We need dimensions. 
             const page = await pdfDoc.getPage(pIndex);
-            const viewport = page.getViewport({ scale: 1.5 }); // Match export scale
+            // Use same scale as export (1.5)
+            const viewport = page.getViewport({ scale: 1.5 });
             
             const tempCanvas = new fabric.StaticCanvas(null, {
                 width: viewport.width,
                 height: viewport.height
             });
             
-            await new Promise(resolve => tempCanvas.loadFromJSON(fabricState, resolve));
+            await tempCanvas.loadFromJSON(fabricState);
             
-            // Remove background image from export
-            tempCanvas.backgroundImage = null;
-            tempCanvas.backgroundColor = null;
-            
-            const overlayDataUrl = tempCanvas.toDataURL({ format: 'png', enableRetinaScaling: true });
-            
-            // Upload Overlay
-            const overlayBlob = await (await fetch(overlayDataUrl)).blob();
-            const overlayName = `overlay_p${pIndex}_${Date.now()}.png`;
-             
-             const overlayUploadRes = await axios.post('/api/s3/upload-url', {
-                filename: overlayName,
-                contentType: 'image/png'
-            });
-            const { uploadUrl: overlayUrl, key: overlayKey } = overlayUploadRes.data;
+            // If the saved state was at a different scale than 1.0 (or whatever export scale), we need to handle it.
+            // But wait, we just loaded JSON into a canvas of size 'viewport.width'.
+            // If 'savedScale' != 1.0, the objects in JSON are scaled.
+            // Our viewport is at scale 1.5 (fixed export scale).
+            // We need to scale objects from 'savedScale' to '1.0' (export base).
 
-            await fetch(overlayUrl, {
-                method: 'PUT',
-                body: overlayBlob,
-                headers: { 'Content-Type': 'image/png' }
-            });
+            // Actually, let's look at export logic:
+            // viewport = page.getViewport({ scale: 1.5 });
+            // exportScale = 1.5;
 
-            // Add Operation
-            operations.push({
-                page: pIndex - 1, // backend is 0-indexed
-                type: "image",
-                key: overlayKey,
-                x: 0,
-                y: 0,
-                width: viewport.width,
-                height: viewport.height
-            });
+            // The JSON coordinates are based on 'savedScale' * 1.5 (QUALITY).
+            // We need to convert them to 'exportScale' * 1.5 space?
+            // Or just convert from Saved Space -> PDF Points -> Export Space?
+
+            // Simplest: Convert everything to PDF Points (72 DPI).
+            // Coordinate in JSON / (savedScale * 1.5) = PDF Point.
+
+            const savedQuality = 1.5; // Assumed constant
+            const conversionFactor = 1 / (savedScale * savedQuality);
+
+            const objects = tempCanvas.getObjects();
+            const visualObjects = [];
+            const semanticOps = [];
+
+            // Separate Semantic vs Visual
+            for (const obj of objects) {
+                // Coordinates in PDF Points (72DPI)
+
+                // Fabric Top-Left (Pixels in saved state)
+                const fabricLeft = obj.left;
+                const fabricTop = obj.top;
+                const fabricWidth = obj.width * obj.scaleX;
+                const fabricHeight = obj.height * obj.scaleY;
+
+                // PDF Bottom-Left (Points)
+                // Using conversionFactor to get unscaled points
+                const pdfX = fabricLeft * conversionFactor;
+                // PDF Height is unscaled. viewport.height is scaled by (1.5 * 1.5)?? No.
+                // viewport was created with scale 1.5.
+                // But we want Y relative to unscaled page height?
+                // pdfY = (pageHeight - (fabricTop + fabricHeight)*conversionFactor)
+
+                // Let's get raw page height
+                const pageRawViewport = page.getViewport({ scale: 1.0 });
+
+                const pdfY = pageRawViewport.height - ((fabricTop + fabricHeight) * conversionFactor);
+
+                const pdfWidth = fabricWidth * conversionFactor;
+                const pdfHeight = fabricHeight * conversionFactor;
+
+                if (obj.data && obj.data.type === 'redact') {
+                    semanticOps.push({
+                        page: pIndex - 1,
+                        type: 'redact',
+                        x: pdfX,
+                        y: pdfY,
+                        width: pdfWidth,
+                        height: pdfHeight
+                    });
+                } else if (obj.data && obj.data.type === 'link') {
+                    semanticOps.push({
+                        page: pIndex - 1,
+                        type: 'link',
+                        url: obj.data.url,
+                        x: pdfX,
+                        y: pdfY,
+                        width: pdfWidth,
+                        height: pdfHeight
+                    });
+                } else if (obj.data && (obj.data.type === 'form_text' || obj.data.type === 'form_checkbox')) {
+                    semanticOps.push({
+                        page: pIndex - 1,
+                        type: obj.data.type,
+                        name: obj.data.name,
+                        x: pdfX,
+                        y: pdfY,
+                        width: pdfWidth,
+                        height: pdfHeight
+                    });
+                } else if (obj.type === 'i-text') {
+                     const fontSize = (obj.fontSize * obj.scaleY) * conversionFactor;
+
+                     semanticOps.push({
+                         page: pIndex - 1,
+                         type: 'text',
+                         text: obj.text,
+                         x: pdfX,
+                         y: pdfY + (pdfHeight * 0.2), // Approx baseline adjustment
+                         fontSize: fontSize,
+                         color: obj.fill
+                     });
+                } else {
+                    // For visual overlay, we need to match the export viewport (scale 1.5)
+                    // If savedScale != 1.0, we must scale the object to match 1.5 scale.
+                    // Scale Factor = 1.5 / (savedScale * 1.5) = 1 / savedScale?
+                    // No. Target scale is 1.5. Source scale is savedScale.
+                    // If savedScale=2, we shrink.
+                    // If savedScale=0.5, we grow.
+                    // Wait, we already computed PDF points.
+                    // To render on tempCanvas (scale 1.5), we need to scale up from PDF points by 1.5.
+
+                    // Reset to unscaled then scale to 1.5
+                    // obj coords are in savedScale*1.5 space.
+                    // target is 1.5 space.
+                    // ratio = 1.5 / (savedScale * 1.5) = 1 / savedScale.
+
+                    if (savedScale !== 1) {
+                        const ratio = 1.0 / savedScale;
+                        obj.scaleX = obj.scaleX * ratio;
+                        obj.scaleY = obj.scaleY * ratio;
+                        obj.left = obj.left * ratio;
+                        obj.top = obj.top * ratio;
+                        obj.setCoords();
+                    }
+
+                    visualObjects.push(obj);
+                }
+            }
+
+            // 3. Render Visual Overlay (Drawings, Images, Highlights, Whiteouts)
+            // IMPORTANT: Render Overlay FIRST so it is behind text/forms (allowing whiteout to hide original content but not new content)
+            if (visualObjects.length > 0) {
+                tempCanvas.clear();
+                // Add back only visual objects
+                visualObjects.forEach(obj => tempCanvas.add(obj));
+
+                // We use enableRetinaScaling: false because viewport is already high res (1.5)
+                const overlayDataUrl = tempCanvas.toDataURL({ format: 'png', enableRetinaScaling: false });
+                const overlayBlob = await (await fetch(overlayDataUrl)).blob();
+                const overlayName = `overlay_p${pIndex}_${Date.now()}.png`;
+
+                const overlayUploadRes = await axios.post('/api/s3/upload-url', {
+                    filename: overlayName,
+                    contentType: 'image/png'
+                });
+                const { uploadUrl: overlayUrl, key: overlayKey } = overlayUploadRes.data;
+
+                await fetch(overlayUrl, {
+                    method: 'PUT',
+                    body: overlayBlob,
+                    headers: { 'Content-Type': 'image/png' }
+                });
+
+                operations.push({
+                    page: pIndex - 1,
+                    type: "image",
+                    key: overlayKey,
+                    x: 0,
+                    y: 0,
+                    width: viewport.width,
+                    height: viewport.height
+                });
+            }
+
+            // Add Semantic Ops AFTER Overlay
+            operations.push(...semanticOps);
             
             tempCanvas.dispose();
         }
@@ -423,8 +861,6 @@ const EditPDF = () => {
         setProcessing(false);
     }
   };
-
-  const jsonLd = { /* ... keep existing ... */ };
 
   if (!file) {
       return (
@@ -474,6 +910,55 @@ const EditPDF = () => {
                         title="Add Text"
                     >
                         <Type className="w-5 h-5" />
+                    </button>
+                    <button
+                        onClick={() => setShowSignModal(true)}
+                         className="p-2 rounded text-gray-600 hover:bg-gray-200"
+                        title="Sign PDF"
+                    >
+                        <PenTool className="w-5 h-5" />
+                    </button>
+                    <button
+                         onClick={() => setTool('text_edit')}
+                         className={`p-2 rounded ${tool === 'text_edit' ? 'bg-white shadow text-purple-600' : 'text-gray-600 hover:bg-gray-200'}`}
+                         title="Edit Text"
+                    >
+                        <Type className="w-5 h-5 underline" />
+                    </button>
+                    <button
+                         onClick={() => setTool('highlight')}
+                         className={`p-2 rounded ${tool === 'highlight' ? 'bg-white shadow text-purple-600' : 'text-gray-600 hover:bg-gray-200'}`}
+                         title="Highlight"
+                    >
+                        <Highlighter className="w-5 h-5" />
+                    </button>
+                    <button
+                         onClick={() => setTool('strikeout')}
+                         className={`p-2 rounded ${tool === 'strikeout' ? 'bg-white shadow text-purple-600' : 'text-gray-600 hover:bg-gray-200'}`}
+                         title="Strikeout"
+                    >
+                        <Strikethrough className="w-5 h-5" />
+                    </button>
+                    <button
+                         onClick={() => setTool('link')}
+                         className={`p-2 rounded ${tool === 'link' ? 'bg-white shadow text-purple-600' : 'text-gray-600 hover:bg-gray-200'}`}
+                         title="Add Link"
+                    >
+                        <LinkIcon className="w-5 h-5" />
+                    </button>
+                    <button
+                         onClick={() => setTool('form_text')}
+                         className={`p-2 rounded ${tool === 'form_text' ? 'bg-white shadow text-purple-600' : 'text-gray-600 hover:bg-gray-200'}`}
+                         title="Form Text Field"
+                    >
+                        <FormInput className="w-5 h-5" />
+                    </button>
+                    <button
+                         onClick={() => setTool('form_checkbox')}
+                         className={`p-2 rounded ${tool === 'form_checkbox' ? 'bg-white shadow text-purple-600' : 'text-gray-600 hover:bg-gray-200'}`}
+                         title="Form Checkbox"
+                    >
+                        <CheckSquare className="w-5 h-5" />
                     </button>
                     <button 
                         onClick={() => setTool('draw')}
@@ -570,9 +1055,10 @@ const EditPDF = () => {
 
            {/* Canvas Area */}
            <div className="flex-1 bg-gray-100 overflow-auto relative flex justify-center p-8">
-               <div className="relative shadow-2xl transition-transform" style={{ transform: `scale(${scale})`, transformOrigin: 'top center' }}>
-                    <div id="canvas-wrapper" className="bg-white">
-                        <canvas id="fabric-canvas" />
+               {/* Removed transform: scale() to fix coordinate mapping issues. Size is controlled by canvas style. */}
+               <div className="relative shadow-2xl origin-top" >
+                    <div ref={canvasWrapperRef} className="bg-white">
+                        <canvas ref={canvasRef} />
                     </div>
                </div>
            </div>
@@ -587,6 +1073,12 @@ const EditPDF = () => {
                    <ZoomOut className="w-5 h-5" />
                </button>
            </div>
+
+           <SignatureModal
+               isOpen={showSignModal}
+               onClose={() => setShowSignModal(false)}
+               onSave={addSignature}
+           />
 
        </div>
     </div>

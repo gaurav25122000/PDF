@@ -3,7 +3,7 @@ import express from 'express';
 import serverless from 'serverless-http';
 import cors from 'cors';
 import multer from 'multer';
-import { PDFDocument, degrees } from 'pdf-lib';
+import { PDFDocument, degrees, rgb, PDFName, PDFString } from 'pdf-lib';
 import archiver from 'archiver';
 import { Stream } from 'stream';
 import fs from 'fs';
@@ -315,24 +315,21 @@ router.post('/process/merge', express.json(), async (req, res) => {
             return res.status(400).json({ error: "At least 2 files are required." });
         }
 
-        const mergedPdf = await PDFDocument.create();
+        const outputPath = path.join('/tmp', `output_merge_${uuidv4()}.pdf`);
 
-        for (const key of keys) {
-            const buffer = await downloadToBuffer(key);
-            const pdf = await PDFDocument.load(buffer);
-            const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
-            copiedPages.forEach((page) => mergedPdf.addPage(page));
+        await runProcessor('merge', { inputKeys: keys, outputPath });
+
+        if (await fileExists(outputPath)) {
+            const buffer = await fs.promises.readFile(outputPath);
+            const resultKey = `results/${Date.now()}_${uuidv4()}_merged.pdf`;
+            await uploadBuffer(resultKey, buffer, 'application/pdf');
+            await logUsage(req, 'Merge PDF');
+            const downloadUrl = await getDownloadUrl(resultKey);
+            await fs.promises.unlink(outputPath).catch(() => {});
+            res.json({ downloadUrl });
+        } else {
+            throw new Error("Merge failed (no output)");
         }
-
-        const pdfBytes = await mergedPdf.save();
-
-        const resultKey = `results/${Date.now()}_${uuidv4()}_merged.pdf`;
-        await uploadBuffer(resultKey, Buffer.from(pdfBytes), 'application/pdf');
-
-        await logUsage(req, 'Merge PDF');
-
-        const downloadUrl = await getDownloadUrl(resultKey);
-        res.json({ downloadUrl });
 
     } catch (error) {
         console.error("Merge Error:", error);
@@ -348,26 +345,28 @@ router.post('/process/split', express.json(), async (req, res) => {
             return res.status(400).json({ error: "File and range are required." });
         }
 
+        const inputPath = path.join('/tmp', `input_split_${uuidv4()}.pdf`);
+        const outputPath = path.join('/tmp', `output_split_${uuidv4()}.pdf`);
+
+        // Need to download input to file first for runProcessor
         const buffer = await downloadToBuffer(key);
-        const srcDoc = await PDFDocument.load(buffer);
-        const pageIndices = parsePageRanges(range, srcDoc.getPageCount());
+        await fs.promises.writeFile(inputPath, buffer);
 
-        if (pageIndices.length === 0) {
-            return res.status(400).json({ error: "Invalid page range." });
+        // pdfcpu Trim accepts "1-3,5" range string directly.
+        await runProcessor('split', { inputPath, outputPath, range });
+
+        if (await fileExists(outputPath)) {
+            const buffer = await fs.promises.readFile(outputPath);
+            const resultKey = `results/${Date.now()}_${uuidv4()}_split.pdf`;
+            await uploadBuffer(resultKey, buffer, 'application/pdf');
+            await logUsage(req, 'Split PDF');
+            const downloadUrl = await getDownloadUrl(resultKey);
+            await fs.promises.unlink(inputPath).catch(() => {});
+            await fs.promises.unlink(outputPath).catch(() => {});
+            res.json({ downloadUrl });
+        } else {
+            throw new Error("Split failed");
         }
-
-        const subPdf = await PDFDocument.create();
-        const copiedPages = await subPdf.copyPages(srcDoc, pageIndices);
-        copiedPages.forEach((page) => subPdf.addPage(page));
-        const subPdfBytes = await subPdf.save();
-
-        const resultKey = `results/${Date.now()}_${uuidv4()}_split.pdf`;
-        await uploadBuffer(resultKey, Buffer.from(subPdfBytes), 'application/pdf');
-
-        await logUsage(req, 'Split PDF');
-
-        const downloadUrl = await getDownloadUrl(resultKey);
-        res.json({ downloadUrl });
 
     } catch (error) {
         console.error("Split Error:", error);
@@ -381,17 +380,26 @@ router.post('/process/unlock', express.json(), async (req, res) => {
         const { key, password } = req.body;
         if (!key || !password) return res.status(400).json({ error: "File and password required." });
 
+        const inputPath = path.join('/tmp', `input_unlock_${uuidv4()}.pdf`);
+        const outputPath = path.join('/tmp', `output_unlock_${uuidv4()}.pdf`);
+
         const buffer = await downloadToBuffer(key);
-        const pdfDoc = await PDFDocument.load(buffer, { password });
-        const pdfBytes = await pdfDoc.save();
+        await fs.promises.writeFile(inputPath, buffer);
 
-        const resultKey = `results/${Date.now()}_${uuidv4()}_unlocked.pdf`;
-        await uploadBuffer(resultKey, Buffer.from(pdfBytes), 'application/pdf');
+        await runProcessor('unlock', { inputPath, outputPath, password });
 
-        await logUsage(req, 'Unlock PDF');
-
-        const downloadUrl = await getDownloadUrl(resultKey);
-        res.json({ downloadUrl });
+        if (await fileExists(outputPath)) {
+            const buffer = await fs.promises.readFile(outputPath);
+            const resultKey = `results/${Date.now()}_${uuidv4()}_unlocked.pdf`;
+            await uploadBuffer(resultKey, buffer, 'application/pdf');
+            await logUsage(req, 'Unlock PDF');
+            const downloadUrl = await getDownloadUrl(resultKey);
+            await fs.promises.unlink(inputPath).catch(() => {});
+            await fs.promises.unlink(outputPath).catch(() => {});
+            res.json({ downloadUrl });
+        } else {
+            throw new Error("Unlock failed");
+        }
     } catch (e) {
         console.error(e);
         res.status(403).json({ error: "Failed to unlock. Wrong password?" });
@@ -405,35 +413,26 @@ router.post('/process/watermark', express.json(), async (req, res) => {
         if (!key) return res.status(400).json({ error: "File required." });
         const watermarkText = text || "CONFIDENTIAL";
 
+        const inputPath = path.join('/tmp', `input_wm_${uuidv4()}.pdf`);
+        const outputPath = path.join('/tmp', `output_wm_${uuidv4()}.pdf`);
+
         const buffer = await downloadToBuffer(key);
-        const pdfDoc = await PDFDocument.load(buffer);
-        const pages = pdfDoc.getPages();
-        const font = await pdfDoc.embedFont("Helvetica-Bold");
+        await fs.promises.writeFile(inputPath, buffer);
 
-        pages.forEach(page => {
-            const { width, height } = page.getSize();
-            const fontSize = 50;
-            const textWidth = font.widthOfTextAtSize(watermarkText, fontSize);
+        await runProcessor('watermark', { inputPath, outputPath, text: watermarkText });
 
-            page.drawText(watermarkText, {
-                x: width / 2 - textWidth / 2,
-                y: height / 2,
-                size: fontSize,
-                font: font,
-                opacity: 0.3,
-                rotate: degrees(45),
-            });
-        });
-
-        const pdfBytes = await pdfDoc.save();
-
-        const resultKey = `results/${Date.now()}_${uuidv4()}_watermarked.pdf`;
-        await uploadBuffer(resultKey, Buffer.from(pdfBytes), 'application/pdf');
-
-        await logUsage(req, 'Watermark PDF');
-
-        const downloadUrl = await getDownloadUrl(resultKey);
-        res.json({ downloadUrl });
+        if (await fileExists(outputPath)) {
+            const buffer = await fs.promises.readFile(outputPath);
+            const resultKey = `results/${Date.now()}_${uuidv4()}_watermarked.pdf`;
+            await uploadBuffer(resultKey, buffer, 'application/pdf');
+            await logUsage(req, 'Watermark PDF');
+            const downloadUrl = await getDownloadUrl(resultKey);
+            await fs.promises.unlink(inputPath).catch(() => {});
+            await fs.promises.unlink(outputPath).catch(() => {});
+            res.json({ downloadUrl });
+        } else {
+            throw new Error("Watermark failed");
+        }
     } catch (e) {
         console.error(e);
         res.status(500).json({ error: "Failed." });
@@ -447,38 +446,26 @@ router.post('/process/page-numbers', express.json(), async (req, res) => {
         if (!key) return res.status(400).json({ error: "File required." });
         const pos = position || 'bottom';
 
+        const inputPath = path.join('/tmp', `input_pn_${uuidv4()}.pdf`);
+        const outputPath = path.join('/tmp', `output_pn_${uuidv4()}.pdf`);
+
         const buffer = await downloadToBuffer(key);
-        const pdfDoc = await PDFDocument.load(buffer);
-        const pages = pdfDoc.getPages();
-        const font = await pdfDoc.embedFont("Helvetica");
+        await fs.promises.writeFile(inputPath, buffer);
 
-        pages.forEach((page, idx) => {
-            const { width, height } = page.getSize();
-            const text = `${idx + 1}`;
-            const fontSize = 12;
-            const textWidth = font.widthOfTextAtSize(text, fontSize);
+        await runProcessor('page_numbers', { inputPath, outputPath, position: pos });
 
-            let x = 0, y = 20;
-
-            switch (pos) {
-                case 'top': x = width / 2 - textWidth / 2; y = height - 20; break;
-                case 'bottom-left': x = 20; y = 20; break;
-                case 'bottom-right': x = width - textWidth - 20; y = 20; break;
-                default: x = width / 2 - textWidth / 2; y = 20; // Bottom Center
-            }
-
-            page.drawText(text, { x, y, size: fontSize, font });
-        });
-
-        const pdfBytes = await pdfDoc.save();
-
-        const resultKey = `results/${Date.now()}_${uuidv4()}_numbered.pdf`;
-        await uploadBuffer(resultKey, Buffer.from(pdfBytes), 'application/pdf');
-
-        await logUsage(req, 'Page Numbers');
-
-        const downloadUrl = await getDownloadUrl(resultKey);
-        res.json({ downloadUrl });
+        if (await fileExists(outputPath)) {
+            const buffer = await fs.promises.readFile(outputPath);
+            const resultKey = `results/${Date.now()}_${uuidv4()}_numbered.pdf`;
+            await uploadBuffer(resultKey, buffer, 'application/pdf');
+            await logUsage(req, 'Page Numbers');
+            const downloadUrl = await getDownloadUrl(resultKey);
+            await fs.promises.unlink(inputPath).catch(() => {});
+            await fs.promises.unlink(outputPath).catch(() => {});
+            res.json({ downloadUrl });
+        } else {
+            throw new Error("Page Numbers failed");
+        }
     } catch (e) {
         console.error(e);
         res.status(500).json({ error: "Failed." });
@@ -491,40 +478,21 @@ router.post('/process/jpg-to-pdf', express.json(), async (req, res) => {
         const { keys } = req.body;
         if (!keys || keys.length === 0) return res.status(400).json({ error: "Files required." });
 
-        const pdfDoc = await PDFDocument.create();
+        const outputPath = path.join('/tmp', `output_jpg2pdf_${uuidv4()}.pdf`);
 
-        for (const key of keys) {
-            const buffer = await downloadToBuffer(key);
-            let image;
-            try {
-                image = await pdfDoc.embedJpg(buffer);
-            } catch (e) {
-                try {
-                    image = await pdfDoc.embedPng(buffer);
-                } catch (e2) {
-                    console.error("Not a JPG or PNG");
-                    continue;
-                }
-            }
+        await runProcessor('jpg_to_pdf', { inputKeys: keys, outputPath });
 
-            const page = pdfDoc.addPage([image.width, image.height]);
-            page.drawImage(image, {
-                x: 0,
-                y: 0,
-                width: image.width,
-                height: image.height,
-            });
+        if (await fileExists(outputPath)) {
+            const buffer = await fs.promises.readFile(outputPath);
+            const resultKey = `results/${Date.now()}_${uuidv4()}_converted.pdf`;
+            await uploadBuffer(resultKey, buffer, 'application/pdf');
+            await logUsage(req, 'Jpg to PDF');
+            const downloadUrl = await getDownloadUrl(resultKey);
+            await fs.promises.unlink(outputPath).catch(() => {});
+            res.json({ downloadUrl });
+        } else {
+            throw new Error("JpgToPdf failed");
         }
-
-        const pdfBytes = await pdfDoc.save();
-
-        const resultKey = `results/${Date.now()}_${uuidv4()}_converted.pdf`;
-        await uploadBuffer(resultKey, Buffer.from(pdfBytes), 'application/pdf');
-
-        await logUsage(req, 'Jpg to PDF');
-
-        const downloadUrl = await getDownloadUrl(resultKey);
-        res.json({ downloadUrl });
     } catch (e) {
         console.error(e);
         res.status(500).json({ error: "Failed. Ensure images are JPG/PNG." });
@@ -542,6 +510,7 @@ router.post('/process/edit', express.json(), async (req, res) => {
         const buffer = await downloadToBuffer(key);
         const pdfDoc = await PDFDocument.load(buffer);
         const pages = pdfDoc.getPages();
+        const font = await pdfDoc.embedFont("Helvetica");
 
         for (const op of ops) {
             if (op.page >= pages.length) continue;
@@ -573,13 +542,14 @@ router.post('/process/edit', express.json(), async (req, res) => {
                 const pageHeight = page.getHeight();
 
                 let drawOpts = {
-                    x: 0,
-                    y: 0,
+                    x: op.x || 0,
+                    y: op.y || 0,
                     width: op.width || image.width,
                     height: op.height || image.height,
                 };
 
                 if (op.key) {
+                    // Overlay mode fills page
                     drawOpts = {
                         x: 0,
                         y: 0,
@@ -589,14 +559,74 @@ router.post('/process/edit', express.json(), async (req, res) => {
                 }
 
                 page.drawImage(image, drawOpts);
+
+            } else if (op.type === 'redact') {
+                page.drawRectangle({
+                    x: op.x,
+                    y: op.y,
+                    width: op.width,
+                    height: op.height,
+                    color: rgb(1, 1, 1), // White
+                    opacity: 1,
+                });
             } else if (op.type === 'text') {
-                const font = await pdfDoc.embedFont("Helvetica");
+                // Parse hex color if string (e.g. "#FF0000")
+                let color = undefined;
+                if (op.color && op.color.startsWith('#')) {
+                    const r = parseInt(op.color.slice(1, 3), 16) / 255;
+                    const g = parseInt(op.color.slice(3, 5), 16) / 255;
+                    const b = parseInt(op.color.slice(5, 7), 16) / 255;
+                    color = rgb(r, g, b);
+                }
+
                 page.drawText(op.text, {
                     x: op.x || 0,
                     y: op.y || 0,
                     size: op.fontSize || 12,
-                    color: op.color ? undefined : undefined,
+                    color: color,
                     font: font
+                });
+
+            } else if (op.type === 'link') {
+                // Low-level Link Annotation
+                // Rect is [llx, lly, urx, ury]
+                const rect = [op.x, op.y, op.x + op.width, op.y + op.height];
+
+                const linkAnnot = pdfDoc.context.register(
+                    pdfDoc.context.obj({
+                        Type: 'Annot',
+                        Subtype: 'Link',
+                        Rect: rect,
+                        Border: [0, 0, 0], // No border visible
+                        A: {
+                            Type: 'Action',
+                            S: 'URI',
+                            URI: PDFString.of(op.url)
+                        }
+                    })
+                );
+
+                page.node.addAnnot(linkAnnot);
+
+            } else if (op.type === 'form_text') {
+                const form = pdfDoc.getForm();
+                const textField = form.createTextField(op.name + '_' + Date.now()); // Ensure unique
+                textField.setText('');
+                textField.addToPage(page, {
+                    x: op.x,
+                    y: op.y,
+                    width: op.width,
+                    height: op.height,
+                });
+
+            } else if (op.type === 'form_checkbox') {
+                const form = pdfDoc.getForm();
+                const checkBox = form.createCheckBox(op.name + '_' + Date.now());
+                checkBox.addToPage(page, {
+                    x: op.x,
+                    y: op.y,
+                    width: op.width,
+                    height: op.height,
                 });
             }
         }
@@ -662,44 +692,50 @@ router.post('/process/word-to-pdf', express.json(), async (req, res) => {
 });
 
 
-// Helper to run Python Process (via S3 + HTTP)
-const runPythonProcess = async (command, inputPath, outputPath, password) => {
-    // 1. Upload Input to S3 (Intermediate)
-    // inputPath is local /tmp file. 
-    // We need to upload it to S3 so Python can download it.
+// Helper to run Processor (Go) Process (via S3 + HTTP)
+// Updated to support options object for multiple inputs and extra params
+const runProcessor = async (command, options) => {
+    // options: { inputPath, inputKeys, outputPath, password, range, angle, text, position }
+    // if inputPath provided, upload it and use as single inputUrl
+    // if inputKeys provided (array), generate multiple presigned URLs
     
-    // Check if inputPath exists
-    if (!fs.existsSync(inputPath)) throw new Error(`Input file not found: ${inputPath}`);
+    let inputUrl = null;
+    let inputUrls = [];
     
-    const inputKey = `temp_in/${uuidv4()}.pdf`;
-    const inputBuffer = await fs.promises.readFile(inputPath);
-    await uploadBuffer(inputKey, inputBuffer, 'application/pdf');
+    if (options.inputPath) {
+        if (!fs.existsSync(options.inputPath)) throw new Error(`Input file not found: ${options.inputPath}`);
+        const inputKey = `temp_in/${uuidv4()}.pdf`;
+        const inputBuffer = await fs.promises.readFile(options.inputPath);
+        await uploadBuffer(inputKey, inputBuffer, 'application/pdf'); // assuming PDF mostly, or generic? Go handles extensions
+        inputUrl = await getDownloadUrl(inputKey);
+    }
     
-    // Generate Presigned GET URL for Python to download
-    const inputUrl = await getDownloadUrl(inputKey); 
-    // Note: getDownloadUrl returns a signed URL valid for 1 hour usually.
+    if (options.inputKeys && options.inputKeys.length > 0) {
+        for (const key of options.inputKeys) {
+            inputUrls.push(await getDownloadUrl(key));
+        }
+    }
     
     let outputUrl = null;
     let outputKey = null;
     
-    if (outputPath) {
-        // We need a URL where Python can PUT the result.
-        // Generate Presigned PUT URL.
+    if (options.outputPath) {
         outputKey = `temp_out/${uuidv4()}.pdf`;
-        // Since we don't have a direct "getUploadUrl" that returns a PUT url easily exposed here?
-        // Wait, `getUploadUrl` in s3.js likely does exactly that (PUTObjectCommand).
         outputUrl = await getUploadUrl(outputKey, 'application/pdf');
     }
 
     const payload = {
         command,
-        inputUrl,
+        inputUrl, // Single
+        inputUrls, // Multiple
         outputUrl,
-        password
+        password: options.password,
+        range: options.range,
+        angle: options.angle,
+        text: options.text,
+        position: options.position
     };
     
-    // 2. Call Python Function
-    // Use SITE_NAME to avoid custom domain loopback issues.
     let siteUrl;
     if (process.env.SITE_NAME) {
         siteUrl = `https://${process.env.SITE_NAME}.netlify.app`;
@@ -708,14 +744,9 @@ const runPythonProcess = async (command, inputPath, outputPath, password) => {
     } else {
         siteUrl = 'http://localhost:8888';
     }
-
-    // Deploy Prime URL (PRs) takes precedence
     if (process.env.DEPLOY_PRIME_URL) siteUrl = process.env.DEPLOY_PRIME_URL;
 
     const processorUrl = `${siteUrl}/.netlify/functions/processor`;
-
-    console.log(`[Processor] SITE_NAME: ${process.env.SITE_NAME}`);
-    console.log(`[Processor] Using Base URL: ${siteUrl}`);
     console.log(`[Processor] Calling: ${processorUrl} with command ${command}`);
     
     try {
@@ -723,22 +754,19 @@ const runPythonProcess = async (command, inputPath, outputPath, password) => {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
-            // fetch doesn't have timeout option by default in Node < 18 or specific envs without AbortController
-            // but standard fetch usually waits.
         });
         
         if (!response.ok) {
              const errText = await response.text();
-             throw new Error(`Python Status ${response.status}: ${errText}`);
+             throw new Error(`Processor Status ${response.status}: ${errText}`);
         }
         
         const respJson = await response.json(); 
         const data = respJson; 
         
-        if (outputPath && outputKey) {
-            // Python said success. Download result from S3 to outputPath.
+        if (options.outputPath && outputKey) {
             const resultBuffer = await downloadToBuffer(outputKey);
-            await fs.promises.writeFile(outputPath, resultBuffer);
+            await fs.promises.writeFile(options.outputPath, resultBuffer);
         }
 
         if (command === 'extract') {
@@ -749,7 +777,7 @@ const runPythonProcess = async (command, inputPath, outputPath, password) => {
 
     } catch (e) {
         console.error("Processor Error:", e.message);
-        throw new Error(`Python Processing Failed: ${e.message}`);
+        throw new Error(`Processor Failed: ${e.message}`);
     }
 };
 
@@ -763,11 +791,11 @@ router.post('/process/pdf-to-word', express.json(), async (req, res) => {
         const buffer = await downloadToBuffer(key);
         const { Document, Packer, Paragraph, TextRun, ImageRun } = docx;
 
-        // Use Python Extractor
+        // Use Go Extractor
         const inputPath = path.join('/tmp', `input_extract_${uuidv4()}.pdf`);
         await fs.promises.writeFile(inputPath, buffer);
         
-        const jsonStr = await runPythonProcess('extract', inputPath);
+        const jsonStr = await runProcessor('extract', { inputPath });
         const pages = JSON.parse(jsonStr);
         
         await fs.promises.unlink(inputPath).catch(() => {});
@@ -852,7 +880,8 @@ router.post('/process/pdf-to-excel', express.json(), async (req, res) => {
         
         const inputPath = path.join('/tmp', `input_extract_${uuidv4()}.pdf`);
         await fs.promises.writeFile(inputPath, buffer);
-        const jsonStr = await runPythonProcess('extract', inputPath);
+        const jsonStr = await runProcessor('extract', { inputPath });
+        const jsonStr = await runProcessor('extract', { inputPath });
         const pages = JSON.parse(jsonStr);
         await fs.promises.unlink(inputPath).catch(() => {});
 
@@ -922,7 +951,7 @@ router.post('/process/pdf-to-pptx', express.json(), async (req, res) => {
         
         const inputPath = path.join('/tmp', `input_extract_${uuidv4()}.pdf`);
         await fs.promises.writeFile(inputPath, buffer);
-        const jsonStr = await runPythonProcess('extract', inputPath);
+        const jsonStr = await runProcessor('extract', inputPath);
         const pages = JSON.parse(jsonStr);
         await fs.promises.unlink(inputPath).catch(() => {});
 
@@ -990,8 +1019,8 @@ router.post('/process/protect', express.json(), async (req, res) => {
         const outputPath = path.join('/tmp', `output_protect_${uuidv4()}.pdf`);
         await fs.promises.writeFile(inputPath, buffer);
 
-        // Call Python
-        await runPythonProcess('protect', inputPath, outputPath, password);
+        // Call Go
+        await runProcessor('protect', { inputPath, outputPath, password });
         
         const protectedBytes = await fs.promises.readFile(outputPath);
 
@@ -1023,8 +1052,8 @@ router.post('/process/compress', express.json(), async (req, res) => {
         const outputPath = path.join('/tmp', `output_compress_${uuidv4()}.pdf`);
         await fs.promises.writeFile(inputPath, buffer);
 
-        // Call Python
-        await runPythonProcess('compress', inputPath, outputPath);
+        // Call Go
+        await runProcessor('compress', { inputPath, outputPath });
         
         if (await fileExists(outputPath)) {
             const compressedBuffer = await fs.readFile(outputPath);
@@ -1061,24 +1090,26 @@ router.post('/process/rotate', express.json(), async (req, res) => {
 
         const rotationAngle = parseInt(angle) || 90;
 
+        const inputPath = path.join('/tmp', `input_rotate_${uuidv4()}.pdf`);
+        const outputPath = path.join('/tmp', `output_rotate_${uuidv4()}.pdf`);
+
         const buffer = await downloadToBuffer(key);
-        const pdfDoc = await PDFDocument.load(buffer);
-        const pages = pdfDoc.getPages();
+        await fs.promises.writeFile(inputPath, buffer);
 
-        pages.forEach(page => {
-            const currentRotation = page.getRotation().angle;
-            page.setRotation(degrees(currentRotation + rotationAngle));
-        });
+        await runProcessor('rotate', { inputPath, outputPath, angle: rotationAngle });
 
-        const pdfBytes = await pdfDoc.save();
-
-        const resultKey = `results/${Date.now()}_${uuidv4()}_rotated.pdf`;
-        await uploadBuffer(resultKey, Buffer.from(pdfBytes), 'application/pdf');
-
-        await logUsage(req, 'Rotate PDF');
-
-        const downloadUrl = await getDownloadUrl(resultKey);
-        res.json({ downloadUrl });
+        if (await fileExists(outputPath)) {
+            const buffer = await fs.promises.readFile(outputPath);
+            const resultKey = `results/${Date.now()}_${uuidv4()}_rotated.pdf`;
+            await uploadBuffer(resultKey, buffer, 'application/pdf');
+            await logUsage(req, 'Rotate PDF');
+            const downloadUrl = await getDownloadUrl(resultKey);
+            await fs.promises.unlink(inputPath).catch(() => {});
+            await fs.promises.unlink(outputPath).catch(() => {});
+            res.json({ downloadUrl });
+        } else {
+            throw new Error("Rotate failed");
+        }
     } catch (e) {
         console.error(e);
         res.status(500).json({ error: "Failed to rotate PDF." });
