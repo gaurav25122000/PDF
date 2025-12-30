@@ -714,7 +714,18 @@ const runPythonProcess = async (command, inputPath, outputPath, password) => {
     };
     
     // 2. Call Python Function
-    const baseUrl = process.env.URL || 'http://localhost:8888';
+    // We must use the absolute URL for internal function-to-function calls if they are on the same domain?
+    // Actually, network calls inside Netlify usually need full URL.
+    // process.env.URL is the Deploy URL (e.g. https://foo.netlify.app).
+    
+    // Fallback logic for URL
+    let baseUrl = process.env.URL;
+    if (!baseUrl) baseUrl = 'http://localhost:8888'; // Dev default
+    
+    // If we are in valid Netlify environment, use that.
+    // Note: If this is a deploy preview, we might want DEPLOY_PRIME_URL
+    if (process.env.DEPLOY_PRIME_URL) baseUrl = process.env.DEPLOY_PRIME_URL;
+
     const processorUrl = `${baseUrl}/.netlify/functions/processor`;
 
     console.log(`[Processor] calling ${processorUrl} with command ${command}`);
