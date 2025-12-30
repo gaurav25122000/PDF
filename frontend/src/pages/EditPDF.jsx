@@ -97,13 +97,37 @@ const EditPDF = () => {
       setThumbnails(thumbs);
   };
 
+  // Helper for matrix multiplication (since pdfjsLib.Util.transform is deprecated/removed in v5)
+  const multiplyTransformMatrices = (m1, m2) => {
+      // m1: [a, b, c, d, e, f]
+      // m2: [g, h, i, j, k, l]
+      // Result:
+      // a*g + c*h, b*g + d*h,
+      // a*i + c*j, b*i + d*j,
+      // a*k + c*l + e, b*k + d*l + f
+      
+      const [a, b, c, d, e, f] = m1;
+      const [g, h, i, j, k, l] = m2;
+
+      return [
+          a * g + c * h,
+          b * g + d * h,
+          a * i + c * j,
+          b * i + d * j,
+          a * k + c * l + e,
+          b * k + d * l + f
+      ];
+  };
+
   const extractTextLayout = async (page, viewport) => {
       try {
           const textContent = await page.getTextContent();
           const items = textContent.items.filter(item => item.str.trim().length > 0);
 
           const blocks = items.map(item => {
-              const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
+              // Custom transform: viewport.transform * item.transform
+              // Note: pdfjsLib.Util.transform(t1, t2) was typically t1 * t2
+              const tx = multiplyTransformMatrices(viewport.transform, item.transform);
 
               // tx is [scaleX, skewY, skewX, scaleY, posX, posY]
               // Font size (approx height)
@@ -129,9 +153,8 @@ const EditPDF = () => {
 
       } catch (e) {
           console.error("Failed to extract text:", e);
-          if (e.message && e.message.includes('Util')) {
-              alert("Critical Error: PDF.js Utility missing. Please report this bug.");
-          }
+          // Alert user but don't blocking everything, though tools won't work
+          alert(`Text extraction failed: ${e.message}. Text tools may not work.`);
       }
   };
 
