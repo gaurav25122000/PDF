@@ -3,6 +3,11 @@ import { Pool } from 'pg';
 const getDbUrl = () => {
     // Check various common env var names
     const url = process.env.NETLIFY_DATABASE_URL || process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
+    
+    // Debug: Log what's available
+    console.log("DB: Checking Env Vars. Available keys:", Object.keys(process.env).filter(k => k.includes('DB') || k.includes('URL') || k.includes('NETLIFY')));
+    console.log("DB: NETLIFY_DATABASE_URL present?", !!process.env.NETLIFY_DATABASE_URL);
+    
     if (!url) {
         console.log("DB: No database URL found in environment variables (NETLIFY_DATABASE_URL, NEON_DATABASE_URL or DATABASE_URL).");
         return null;

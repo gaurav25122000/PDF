@@ -234,30 +234,43 @@ router.post('/auth/login', async (req, res) => {
 router.get('/auth/me', optionalAuth, async (req, res) => {
     if (!req.user) return res.status(401).json({ error: "Not logged in" });
 
-    const userRes = await query('SELECT id, email, name FROM users WHERE id = $1', [req.user.id]);
-    const userData = userRes.rows[0];
+    try {
+        const userRes = await query('SELECT id, email, name FROM users WHERE id = $1', [req.user.id]);
+        const userData = userRes.rows[0];
 
-    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const countRes = await query(
-        'SELECT COUNT(*) FROM usage_logs WHERE user_id = $1 AND created_at > $2',
-        [req.user.id, oneDayAgo]
-    );
-    const oldestRes = await query(
-        'SELECT created_at FROM usage_logs WHERE user_id = $1 AND created_at > $2 ORDER BY created_at ASC LIMIT 1',
-        [req.user.id, oneDayAgo]
-    );
+        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const countRes = await query(
+            'SELECT COUNT(*) FROM usage_logs WHERE user_id = $1 AND created_at > $2',
+            [req.user.id, oneDayAgo]
+        );
+        const oldestRes = await query(
+            'SELECT created_at FROM usage_logs WHERE user_id = $1 AND created_at > $2 ORDER BY created_at ASC LIMIT 1',
+            [req.user.id, oneDayAgo]
+        );
 
-    let resetTime = null;
-    if (oldestRes.rows.length > 0) {
-        resetTime = new Date(new Date(oldestRes.rows[0].created_at).getTime() + 24 * 60 * 60 * 1000);
+        let resetTime = null;
+        if (oldestRes.rows.length > 0) {
+            resetTime = new Date(new Date(oldestRes.rows[0].created_at).getTime() + 24 * 60 * 60 * 1000);
+        }
+
+        res.json({
+            user: userData,
+            usageToday: parseInt(countRes.rows[0].count),
+            limit: 300,
+            resetTime
+        });
+    } catch (e) {
+        console.error("Auth Me Error:", e);
+        // Fallback for missing DB or other errors: return basic user info from token if possible, or 500
+        // Since we can't fetch userData from DB, we rely on token payload
+        res.json({
+            user: { id: req.user.id, email: req.user.email, name: 'Guest' }, // fallback
+            usageToday: 0,
+            limit: 300,
+            resetTime: null,
+            warning: "Database not connected"
+        });
     }
-
-    res.json({
-        user: userData,
-        usageToday: parseInt(countRes.rows[0].count),
-        limit: 300,
-        resetTime
-    });
 });
 
 router.get('/usage-status', optionalAuth, async (req, res) => {
