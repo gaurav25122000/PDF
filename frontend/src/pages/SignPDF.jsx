@@ -39,7 +39,6 @@ const SignPDF = () => {
           const arrayBuffer = await pdfFile.arrayBuffer();
           const loadedPdf = await pdfjsLib.getDocument(arrayBuffer).promise;
           setPdfDoc(loadedPdf);
-          renderPage(loadedPdf, 1);
       } catch (err) {
           console.error("Error loading PDF:", err);
           setError("Failed to load PDF.");
@@ -211,11 +210,7 @@ const SignPDF = () => {
                 {/* Preview Area */}
                 <div className="flex-1 bg-gray-100 rounded-xl overflow-auto p-4 flex justify-center items-start border border-gray-200">
                      <div className="relative shadow-xl bg-white">
-                        <canvas 
-                            ref={canvasRef}
-                            className="hidden" // Hidden because we use fabric canvas
-                        />
-                        <canvas id="sign-canvas" className="bg-white" />
+                        <canvas ref={canvasRef} />
                         {loading && (
                             <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10">
                                 <Loader2 className="animate-spin w-8 h-8 text-marvel-red" />

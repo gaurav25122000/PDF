@@ -39,6 +39,7 @@ const EditPDF = () => {
   const toolRef = useRef(tool); // Ref to access tool in listeners
   const [color, setColor] = useState('#000000');
   const [strokeWidth, setStrokeWidth] = useState(2);
+  const [selectedObject, setSelectedObject] = useState(null); // Track selected object for properties panel
   
   // Data State
   // Map pageIndex (1-based) to fabric JSON string
@@ -335,6 +336,7 @@ const EditPDF = () => {
         // Add functionality to handle Object selection events
         canvas.on('selection:created', handleSelection);
         canvas.on('selection:updated', handleSelection);
+        canvas.on('selection:cleared', () => setSelectedObject(null));
         
         console.log("Fabric canvas created");
 
@@ -489,10 +491,15 @@ const EditPDF = () => {
   // Handle converting ghost to editable
   const handleSelection = (e) => {
       const selected = e.selected ? e.selected[0] : null;
-      if (!selected || !fabricCanvasRef.current) return;
+      if (!selected || !fabricCanvasRef.current) {
+          setSelectedObject(null);
+          return;
+      }
       
       if (selected.data && selected.data.type === 'text_ghost') {
           convertGhostToText(selected);
+      } else {
+          setSelectedObject(selected);
       }
   };
 
@@ -1140,23 +1147,132 @@ const EditPDF = () => {
                </div>
                
                {/* Properties */}
-                <div className="flex items-center gap-2 ml-4">
-                   <input 
-                      type="color" 
-                      value={color} 
-                      onChange={(e) => setColor(e.target.value)}
-                      className="w-8 h-8 rounded cursor-pointer border-0 p-0 overflow-hidden"
-                   />
-                   <div className="flex items-center gap-2 bg-gray-50 p-1 rounded border border-gray-200">
-                        <span className="text-xs text-gray-500 font-medium px-1">Width:</span>
-                        <input 
-                            type="number" 
-                            min="1" max="20" 
-                            value={strokeWidth} 
-                            onChange={(e) => setStrokeWidth(parseInt(e.target.value))}
-                            className="w-12 p-1 text-sm border rounded"
-                        />
-                   </div>
+                
+                {/* Properties Panel */}
+                 <div className="flex items-center gap-4 ml-4 px-4 border-l border-gray-200">
+                    {/* Common Properties (Color/Stroke) */}
+                    <div className="flex items-center gap-2">
+                       <label className="text-xs text-gray-500 font-medium">Color:</label>
+                       <input 
+                          type="color" 
+                          value={color} 
+                          onChange={(e) => {
+                              setColor(e.target.value);
+                              if (fabricCanvasRef.current) {
+                                  const active = fabricCanvasRef.current.getActiveObject();
+                                  if (active) {
+                                      active.set(active.type === 'i-text' ? 'fill' : 'stroke', e.target.value);
+                                      if (active.type !== 'i-text') active.set('fill', 'transparent'); // For shapes, usually fill transparent
+                                      fabricCanvasRef.current.requestRenderAll();
+                                  }
+                              }
+                          }}
+                          className="w-8 h-8 rounded cursor-pointer border-0 p-0 overflow-hidden shadow-sm"
+                          title="Color"
+                       />
+                    </div>
+
+                    {selectedObject && (selectedObject.type === 'i-text' || selectedObject.data?.type === 'edited_text') && (
+                        <>
+                            <div className="h-8 w-px bg-gray-300"></div>
+                            
+                            {/* Font Family */}
+                            <select 
+                                value={selectedObject.fontFamily}
+                                onChange={(e) => {
+                                    if (fabricCanvasRef.current) {
+                                        selectedObject.set('fontFamily', e.target.value);
+                                        fabricCanvasRef.current.requestRenderAll();
+                                        setSelectedObject({...selectedObject}); // Force re-render
+                                    }
+                                }}
+                                className="border rounded p-1 text-sm w-32"
+                            >
+                                <option value="Helvetica">Helvetica</option>
+                                <option value="Times New Roman">Times New Roman</option>
+                                <option value="Courier New">Courier New</option>
+                                <option value="Arial">Arial</option>
+                                <option value="Verdana">Verdana</option>
+                            </select>
+
+                            {/* Font Size */}
+                            <div className="flex items-center gap-1 bg-gray-50 p-1 rounded border border-gray-200">
+                                <span className="text-xs text-gray-500 font-medium px-1">Size:</span>
+                                <input 
+                                    type="number" 
+                                    min="8" max="120" 
+                                    value={selectedObject.fontSize} 
+                                    onChange={(e) => {
+                                        const val = parseInt(e.target.value);
+                                        if (fabricCanvasRef.current) {
+                                            selectedObject.set('fontSize', val);
+                                            fabricCanvasRef.current.requestRenderAll();
+                                            setSelectedObject({...selectedObject});
+                                        }
+                                    }}
+                                    className="w-12 p-1 text-sm border-0 bg-transparent"
+                                />
+                            </div>
+
+                             {/* Text Align */}
+                             <button
+                                onClick={() => {
+                                    if(fabricCanvasRef.current) {
+                                        const current = selectedObject.textAlign || 'left';
+                                        const next = current === 'left' ? 'center' : (current === 'center' ? 'right' : 'left');
+                                        selectedObject.set('textAlign', next);
+                                        fabricCanvasRef.current.requestRenderAll();
+                                    }
+                                }}
+                                className="p-1 hover:bg-gray-200 rounded text-xs font-bold w-6 text-center text-gray-600 border border-gray-300"
+                                title="Align Text"
+                             >
+                                {(selectedObject.textAlign || 'left').substring(0,1).toUpperCase()}
+                             </button>
+
+                             {/* Text BG */}
+                             <div className="flex items-center gap-1">
+                                <span className="text-xs text-gray-500 font-medium">BG:</span>
+                                <input 
+                                    type="color" 
+                                    value={selectedObject.backgroundColor || '#ffffff'} 
+                                    onChange={(e) => {
+                                        if (fabricCanvasRef.current) {
+                                            // Handling transparent?
+                                            selectedObject.set('backgroundColor', e.target.value);
+                                            fabricCanvasRef.current.requestRenderAll();
+                                        }
+                                    }}
+                                    className="w-6 h-6 rounded cursor-pointer border shadow-sm"
+                                    title="Background Color"
+                                />
+                                <button 
+                                    onClick={() => {
+                                        if (fabricCanvasRef.current) {
+                                            selectedObject.set('backgroundColor', '');
+                                            fabricCanvasRef.current.requestRenderAll();
+                                        }
+                                    }}
+                                    className="text-[10px] text-red-500 hover:underline"
+                                >
+                                    Clear
+                                </button>
+                             </div>
+                        </>
+                    )}
+
+                    {!selectedObject || (selectedObject.type !== 'i-text' && selectedObject.type !== 'text') && (
+                        <div className="flex items-center gap-2 bg-gray-50 p-1 rounded border border-gray-200">
+                            <span className="text-xs text-gray-500 font-medium px-1">Stroke:</span>
+                            <input 
+                                type="number" 
+                                min="1" max="20" 
+                                value={strokeWidth} 
+                                onChange={(e) => setStrokeWidth(parseInt(e.target.value))}
+                                className="w-12 p-1 text-sm border rounded"
+                            />
+                        </div>
+                    )}
                    <button onClick={deleteSelected} className="p-2 text-red-500 hover:bg-red-50 rounded" title="Delete Selected">
                        <Trash2 className="w-5 h-5" />
                    </button>
