@@ -21,6 +21,12 @@ type RequestBody struct {
 	InputURL  string `json:"inputUrl"`
 	OutputURL string `json:"outputUrl"`
 	Password  string `json:"password"`
+	// Additional Params
+	InputURLs []string    `json:"inputUrls"` // For Merge/JpgToPdf
+	Range     string      `json:"range"`     // For Split
+	Angle     int         `json:"angle"`     // For Rotate
+	Text      string      `json:"text"`      // For Watermark
+	Position  string      `json:"position"`  // For Page Numbers
 	// For Edit:
 	Operations []Operation `json:"operations"`
 }
@@ -109,9 +115,28 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	defer os.Remove(inputFile)
 	defer os.Remove(outputFile)
 
-	// Download Input
-	if err := downloadFile(body.InputURL, inputFile); err != nil {
-		return events.APIGatewayProxyResponse{StatusCode: 500, Body: fmt.Sprintf("Download failed: %v", err)}, nil
+	// Download Input(s)
+	// For Merge/JpgToPdf, we have multiple inputs
+	var inputFiles []string
+
+	if len(body.InputURLs) > 0 {
+		for i, url := range body.InputURLs {
+			f := filepath.Join(tmpDir, fmt.Sprintf("in_%s_%d.pdf", request.RequestContext.RequestID, i))
+			if body.Command == "jpg_to_pdf" {
+				f = filepath.Join(tmpDir, fmt.Sprintf("in_%s_%d.jpg", request.RequestContext.RequestID, i))
+			}
+			if err := downloadFile(url, f); err != nil {
+				return events.APIGatewayProxyResponse{StatusCode: 500, Body: fmt.Sprintf("Download %d failed: %v", i, err)}, nil
+			}
+			inputFiles = append(inputFiles, f)
+			defer os.Remove(f)
+		}
+		// For single input commands that might receive InputURL
+	} else if body.InputURL != "" {
+		if err := downloadFile(body.InputURL, inputFile); err != nil {
+			return events.APIGatewayProxyResponse{StatusCode: 500, Body: fmt.Sprintf("Download failed: %v", err)}, nil
+		}
+		inputFiles = append(inputFiles, inputFile)
 	}
 
 	// Process
@@ -124,6 +149,86 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	var resultData interface{}
 
 	switch body.Command {
+	case "merge":
+		if len(inputFiles) < 2 {
+			return events.APIGatewayProxyResponse{StatusCode: 400, Body: "At least 2 files required for merge"}, nil
+		}
+		// MergeCreateFile takes output, input[], config
+		if err := api.MergeCreateFile(inputFiles, outputFile, false, conf); err != nil {
+			return events.APIGatewayProxyResponse{StatusCode: 500, Body: fmt.Sprintf("Merge failed: %v", err)}, nil
+		}
+
+	case "split":
+		// pdfcpu split creates directory of files. We want specific range?
+		// api.SplitFile splits INTO a directory.
+		// If we want to extract a sub-pdf (range), we use Trim?
+		// api.TrimFile generates a file with selected pages.
+		// Range format in pdfcpu: "1-3,5"
+		// If body.Range is set, use Trim.
+
+		// If range is provided, we treat it as Extract Pages (Trim).
+		if body.Range == "" {
+			return events.APIGatewayProxyResponse{StatusCode: 400, Body: "Range required"}, nil
+		}
+
+		// pdfcpu expects pages as []string
+		pages := []string{body.Range}
+		if err := api.TrimFile(inputFile, outputFile, pages, conf); err != nil {
+			return events.APIGatewayProxyResponse{StatusCode: 500, Body: fmt.Sprintf("Split/Trim failed: %v", err)}, nil
+		}
+
+	case "rotate":
+		// RotateFile(inFile, outFile, rotation, pages, conf)
+		// rotation is int degrees.
+		if err := api.RotateFile(inputFile, outputFile, body.Angle, nil, conf); err != nil {
+			return events.APIGatewayProxyResponse{StatusCode: 500, Body: fmt.Sprintf("Rotate failed: %v", err)}, nil
+		}
+
+	case "unlock":
+		// DecryptFile(inFile, outFile, conf)
+		// Password must be in conf
+		conf.UserPW = body.Password
+		conf.OwnerPW = body.Password
+		if err := api.DecryptFile(inputFile, outputFile, conf); err != nil {
+			return events.APIGatewayProxyResponse{StatusCode: 500, Body: fmt.Sprintf("Unlock failed: %v", err)}, nil
+		}
+
+	case "watermark":
+		// AddTextWatermarksFile(inFile, outFile, selectedPages, onTop, mode, desc, conf)
+		// desc is string configuration (e.g. "text:Hello, points:48, ...")
+		// We construct desc from body.Text
+		desc := fmt.Sprintf("text:%s, points:48, color: 0.5 0.5 0.5, rot:45, opacity: 0.3", body.Text)
+		// Pass "text" as mode
+		if err := api.AddTextWatermarksFile(inputFile, outputFile, nil, true, "text", desc, conf); err != nil {
+			return events.APIGatewayProxyResponse{StatusCode: 500, Body: fmt.Sprintf("Watermark failed: %v", err)}, nil
+		}
+
+	case "page_numbers":
+		// AddTextWatermarksFile
+		// Position logic: "bottom", "top", "bottom-left", "bottom-right"
+		// pdfcpu anchoring: "pos:bc" (bottom center), "pos:tl", etc.
+		// desc: "text:%p, ..." (%p is page number)
+
+		pos := "bc" // default bottom center
+		switch body.Position {
+		case "top": pos = "tc"
+		case "bottom-left": pos = "bl"
+		case "bottom-right": pos = "br"
+		}
+
+		desc := fmt.Sprintf("text:%%p, points:12, pos:%s, offset:0 10", pos)
+		if err := api.AddTextWatermarksFile(inputFile, outputFile, nil, true, "text", desc, conf); err != nil {
+			return events.APIGatewayProxyResponse{StatusCode: 500, Body: fmt.Sprintf("Page numbers failed: %v", err)}, nil
+		}
+
+	case "jpg_to_pdf":
+		// ImportImagesFile(inputFiles, outFile, importConf, conf)
+		// inputFiles is array of images
+		// importConf is null for default
+		if err := api.ImportImagesFile(inputFiles, outputFile, nil, conf); err != nil {
+			return events.APIGatewayProxyResponse{StatusCode: 500, Body: fmt.Sprintf("Image import failed: %v", err)}, nil
+		}
+
 	case "compress":
 		// pdfcpu Optimize
 		if err := api.OptimizeFile(inputFile, outputFile, conf); err != nil {
