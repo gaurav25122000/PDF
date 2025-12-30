@@ -795,8 +795,8 @@ router.post('/process/pdf-to-word', express.json(), async (req, res) => {
         const inputPath = path.join('/tmp', `input_extract_${uuidv4()}.pdf`);
         await fs.promises.writeFile(inputPath, buffer);
         
-        const jsonStr = await runProcessor('extract', { inputPath });
-        const pages = JSON.parse(jsonStr);
+        const jsonStrWord = await runProcessor('extract', { inputPath });
+        const pages = JSON.parse(jsonStrWord);
         
         await fs.promises.unlink(inputPath).catch(() => {});
 
@@ -880,8 +880,8 @@ router.post('/process/pdf-to-excel', express.json(), async (req, res) => {
         
         const inputPath = path.join('/tmp', `input_extract_${uuidv4()}.pdf`);
         await fs.promises.writeFile(inputPath, buffer);
-        const jsonStr = await runProcessor('extract', { inputPath });
-        const pages = JSON.parse(jsonStr);
+        const jsonStrExcel = await runProcessor('extract', { inputPath });
+        const pages = JSON.parse(jsonStrExcel);
         await fs.promises.unlink(inputPath).catch(() => {});
 
         const allRows = [];
@@ -950,8 +950,8 @@ router.post('/process/pdf-to-pptx', express.json(), async (req, res) => {
         
         const inputPath = path.join('/tmp', `input_extract_${uuidv4()}.pdf`);
         await fs.promises.writeFile(inputPath, buffer);
-        const jsonStr = await runProcessor('extract', inputPath);
-        const pages = JSON.parse(jsonStr);
+        const jsonStrPptx = await runProcessor('extract', inputPath);
+        const pages = JSON.parse(jsonStrPptx);
         await fs.promises.unlink(inputPath).catch(() => {});
 
         const pptx = new pptxgen();
