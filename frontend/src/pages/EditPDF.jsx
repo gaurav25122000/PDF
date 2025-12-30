@@ -35,6 +35,7 @@ const EditPDF = () => {
   const canvasWrapperRef = useRef(null); // The wrapper div
   const fabricCanvasRef = useRef(null);
   const [tool, setTool] = useState('select'); // select, text, draw, rect, circle
+  const toolRef = useRef(tool); // Ref to access tool in listeners
   const [color, setColor] = useState('#000000');
   const [strokeWidth, setStrokeWidth] = useState(2);
   
@@ -275,6 +276,7 @@ const EditPDF = () => {
 
   // Update tool settings when tool/color changes
   useEffect(() => {
+    toolRef.current = tool; // Sync ref
     if (fabricCanvasRef.current) {
         updateCanvasTool(fabricCanvasRef.current);
     }
@@ -303,7 +305,7 @@ const EditPDF = () => {
           return;
       }
 
-      if (!['highlight', 'strikeout', 'text_edit'].includes(tool)) {
+      if (!['highlight', 'strikeout', 'text_edit'].includes(toolRef.current)) {
           // Clear preview if switching away
           if (hoveredTextBlock) setHoveredTextBlock(null);
           return;
@@ -336,7 +338,9 @@ const EditPDF = () => {
 
   const handleMouseDown = (e, canvas) => {
       // Handle Rectangle Drawing Tools (Link, Form)
-      if (['link', 'form_text', 'form_checkbox'].includes(tool)) {
+      const currentTool = toolRef.current;
+
+      if (['link', 'form_text', 'form_checkbox'].includes(currentTool)) {
           isDragging.current = true;
           const pointer = canvas.getPointer(e.e);
           dragStart.current = { x: pointer.x, y: pointer.y };
@@ -346,8 +350,8 @@ const EditPDF = () => {
               top: pointer.y,
               width: 0,
               height: 0,
-              fill: tool === 'link' ? 'rgba(0, 0, 255, 0.1)' : 'rgba(200, 200, 200, 0.2)',
-              stroke: tool === 'link' ? 'blue' : 'gray',
+              fill: currentTool === 'link' ? 'rgba(0, 0, 255, 0.1)' : 'rgba(200, 200, 200, 0.2)',
+              stroke: currentTool === 'link' ? 'blue' : 'gray',
               strokeWidth: 1,
               strokeDashArray: [5, 5]
           });
@@ -359,7 +363,7 @@ const EditPDF = () => {
 
       if (!hoveredTextBlock) return;
 
-      if (tool === 'highlight') {
+      if (currentTool === 'highlight') {
            const rect = new fabric.Rect({
                 left: hoveredTextBlock.x,
                 top: hoveredTextBlock.y,
@@ -372,8 +376,7 @@ const EditPDF = () => {
            });
            canvas.add(rect);
            canvas.setActiveObject(rect);
-           // Reset tool? No, allow continuous highlighting
-      } else if (tool === 'strikeout') {
+      } else if (currentTool === 'strikeout') {
            const line = new fabric.Line([
                hoveredTextBlock.x,
                hoveredTextBlock.y + (hoveredTextBlock.height / 2),
@@ -386,7 +389,7 @@ const EditPDF = () => {
            });
            canvas.add(line);
            canvas.setActiveObject(line);
-      } else if (tool === 'text_edit') {
+      } else if (currentTool === 'text_edit') {
            // Whiteout original
            const whiteout = new fabric.Rect({
                 left: hoveredTextBlock.x,
@@ -427,7 +430,9 @@ const EditPDF = () => {
           canvas.setActiveObject(rect);
 
           // Prompt for details
-          if (tool === 'link') {
+          const currentTool = toolRef.current;
+
+          if (currentTool === 'link') {
               const url = prompt("Enter Link URL:", "https://");
               if (url) {
                   rect.set({
@@ -438,7 +443,7 @@ const EditPDF = () => {
               } else {
                   canvas.remove(rect);
               }
-          } else if (tool === 'form_text') {
+          } else if (currentTool === 'form_text') {
               const name = prompt("Enter Field Name:", "Text_Field");
               if (name) {
                   rect.set({
@@ -454,7 +459,7 @@ const EditPDF = () => {
               } else {
                   canvas.remove(rect);
               }
-          } else if (tool === 'form_checkbox') {
+          } else if (currentTool === 'form_checkbox') {
               const name = prompt("Enter Checkbox Name:", "Checkbox");
                if (name) {
                   rect.set({
