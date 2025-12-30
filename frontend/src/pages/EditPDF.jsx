@@ -145,41 +145,65 @@ const EditPDF = () => {
   }, [pdfDoc, currentPage, scale]);
 
   const initFabric = (width, height, bgDataUrl) => {
-      if (fabricCanvasRef.current) {
-          fabricCanvasRef.current.dispose();
+      console.log("Initializing Fabric with dimensions:", width, height);
+
+      try {
+        if (fabricCanvasRef.current) {
+            console.log("Disposing existing fabric canvas");
+            fabricCanvasRef.current.dispose();
+        }
+
+        const canvas = new fabric.Canvas('fabric-canvas', {
+            width: width,
+            height: height,
+        });
+        fabricCanvasRef.current = canvas;
+        console.log("Fabric canvas created");
+
+        // Robust Image Class Detection
+        const ImageClass = fabric.FabricImage || fabric.Image;
+        if (!ImageClass) {
+            console.error("Fabric Image class not found in exports:", Object.keys(fabric));
+            setError("Could not load PDF page (Fabric Image missing).");
+            return;
+        }
+
+        // Set background
+        ImageClass.fromURL(bgDataUrl).then(img => {
+            console.log("Background image loaded from URL");
+            img.set({
+                originX: 'left',
+                originY: 'top',
+                scaleX: 1,
+                scaleY: 1
+            });
+            canvas.setBackgroundImage(img, canvas.requestRenderAll.bind(canvas));
+            console.log("Background image set on canvas");
+        }).catch(err => {
+            console.error("Error loading background image:", err);
+            setError("Failed to render page background.");
+        });
+
+        // Restore state if exists
+        if (pageStates.current[currentPage]) {
+            console.log("Restoring page state");
+            canvas.loadFromJSON(pageStates.current[currentPage], () => {
+                canvas.requestRenderAll();
+                console.log("Page state restored");
+            });
+        }
+
+        // Event listeners
+        canvas.on('path:created', () => {
+           // Auto-save logic could go here
+        });
+        
+        // Apply current tool
+        updateCanvasTool(canvas);
+      } catch (err) {
+          console.error("Error in initFabric:", err);
+          setError("Failed to initialize canvas.");
       }
-
-      const canvas = new fabric.Canvas('fabric-canvas', {
-          width: width,
-          height: height,
-      });
-      fabricCanvasRef.current = canvas;
-
-      // Set background
-      fabric.FabricImage.fromURL(bgDataUrl).then(img => {
-          img.set({
-              originX: 'left',
-              originY: 'top',
-              scaleX: 1,
-              scaleY: 1
-          });
-          canvas.setBackgroundImage(img, canvas.requestRenderAll.bind(canvas));
-      });
-
-      // Restore state if exists
-      if (pageStates.current[currentPage]) {
-          canvas.loadFromJSON(pageStates.current[currentPage], () => {
-              canvas.requestRenderAll();
-          });
-      }
-
-      // Event listeners
-      canvas.on('path:created', () => {
-         // Auto-save logic could go here
-      });
-      
-      // Apply current tool
-      updateCanvasTool(canvas);
   };
 
   // Update tool settings when tool/color changes
