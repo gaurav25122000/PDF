@@ -9,7 +9,7 @@ import { Stream } from 'stream';
 import fs from 'fs';
 import path from 'path';
 import { createCanvas } from 'canvas';
-import * as pdfjsLib from 'pdfjs-dist';
+// import * as pdfjsLib from 'pdfjs-dist'; // Use dynamic import instead
 
 const app = express();
 app.use(cors());
@@ -1138,6 +1138,9 @@ router.post('/process/pdf-to-jpg', express.json(), async (req, res) => {
         const zipPath = path.join('/tmp', `images_${uuidv4()}.zip`);
         const buffer = await downloadToBuffer(key);
         const uint8Array = new Uint8Array(buffer);
+
+        // Dynamic import to avoid Require(ESM) error
+        const pdfjsLib = await import('pdfjs-dist');
 
         const loadingTask = pdfjsLib.getDocument({
              data: uint8Array,

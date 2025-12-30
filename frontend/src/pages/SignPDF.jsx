@@ -87,13 +87,28 @@ const SignPDF = () => {
       return () => observer.disconnect();
   }, [numPages]);
 
+  // Dynamic Scale
   useEffect(() => {
-      if (!pagesContainerRef.current) return;
-      const width = pagesContainerRef.current.clientWidth;
-      if (width > 0) {
-
-      }
-  }, [numPages]);
+      const calcScale = async () => {
+         if (!pdfDoc || !pagesContainerRef.current) return;
+         try {
+             // Get first page to determine width fit
+             const page = await pdfDoc.getPage(1);
+             const viewport = page.getViewport({ scale: 1 });
+             const containerWidth = pagesContainerRef.current.clientWidth - 48; // -48 for padding
+             if (containerWidth > 0) {
+                 const newScale = containerWidth / viewport.width;
+                 setScale(newScale);
+             }
+         } catch (e) {
+             console.error("Scale error:", e);
+         }
+      };
+      
+      calcScale();
+      window.addEventListener('resize', calcScale);
+      return () => window.removeEventListener('resize', calcScale);
+  }, [pdfDoc]);
 
   const handleCanvasReady = (pageNumber, canvas) => {
       if (canvas) {
@@ -246,7 +261,7 @@ const SignPDF = () => {
                             pageNumber={page} 
                             pdfDoc={pdfDoc}
                             onCanvasReady={handleCanvasReady}
-                            scale={null}
+                            scale={scale}
                          />
                      ))}
                      
