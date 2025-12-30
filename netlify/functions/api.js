@@ -592,6 +592,15 @@ router.post('/process/edit', express.json(), async (req, res) => {
 
                 page.drawImage(image, drawOpts);
 
+            } else if (op.type === 'redact') {
+                page.drawRectangle({
+                    x: op.x,
+                    y: op.y,
+                    width: op.width,
+                    height: op.height,
+                    color: rgb(1, 1, 1), // White
+                    opacity: 1,
+                });
             } else if (op.type === 'text') {
                 // Parse hex color if string (e.g. "#FF0000")
                 let color = undefined;
@@ -715,11 +724,11 @@ router.post('/process/word-to-pdf', express.json(), async (req, res) => {
 });
 
 
-// Helper to run Python Process (via S3 + HTTP)
-const runPythonProcess = async (command, inputPath, outputPath, password) => {
+// Helper to run Processor (Go) Process (via S3 + HTTP)
+const runProcessor = async (command, inputPath, outputPath, password) => {
     // 1. Upload Input to S3 (Intermediate)
     // inputPath is local /tmp file. 
-    // We need to upload it to S3 so Python can download it.
+    // We need to upload it to S3 so Go can download it.
     
     // Check if inputPath exists
     if (!fs.existsSync(inputPath)) throw new Error(`Input file not found: ${inputPath}`);
@@ -728,19 +737,16 @@ const runPythonProcess = async (command, inputPath, outputPath, password) => {
     const inputBuffer = await fs.promises.readFile(inputPath);
     await uploadBuffer(inputKey, inputBuffer, 'application/pdf');
     
-    // Generate Presigned GET URL for Python to download
+    // Generate Presigned GET URL for Go to download
     const inputUrl = await getDownloadUrl(inputKey); 
-    // Note: getDownloadUrl returns a signed URL valid for 1 hour usually.
     
     let outputUrl = null;
     let outputKey = null;
     
     if (outputPath) {
-        // We need a URL where Python can PUT the result.
+        // We need a URL where Go can PUT the result.
         // Generate Presigned PUT URL.
         outputKey = `temp_out/${uuidv4()}.pdf`;
-        // Since we don't have a direct "getUploadUrl" that returns a PUT url easily exposed here?
-        // Wait, `getUploadUrl` in s3.js likely does exactly that (PUTObjectCommand).
         outputUrl = await getUploadUrl(outputKey, 'application/pdf');
     }
 
@@ -751,7 +757,7 @@ const runPythonProcess = async (command, inputPath, outputPath, password) => {
         password
     };
     
-    // 2. Call Python Function
+    // 2. Call Go Function
     // Use SITE_NAME to avoid custom domain loopback issues.
     let siteUrl;
     if (process.env.SITE_NAME) {
@@ -776,20 +782,18 @@ const runPythonProcess = async (command, inputPath, outputPath, password) => {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
-            // fetch doesn't have timeout option by default in Node < 18 or specific envs without AbortController
-            // but standard fetch usually waits.
         });
         
         if (!response.ok) {
              const errText = await response.text();
-             throw new Error(`Python Status ${response.status}: ${errText}`);
+             throw new Error(`Processor Status ${response.status}: ${errText}`);
         }
         
         const respJson = await response.json(); 
         const data = respJson; 
         
         if (outputPath && outputKey) {
-            // Python said success. Download result from S3 to outputPath.
+            // Processor said success. Download result from S3 to outputPath.
             const resultBuffer = await downloadToBuffer(outputKey);
             await fs.promises.writeFile(outputPath, resultBuffer);
         }
@@ -802,7 +806,7 @@ const runPythonProcess = async (command, inputPath, outputPath, password) => {
 
     } catch (e) {
         console.error("Processor Error:", e.message);
-        throw new Error(`Python Processing Failed: ${e.message}`);
+        throw new Error(`Processor Failed: ${e.message}`);
     }
 };
 
@@ -816,11 +820,11 @@ router.post('/process/pdf-to-word', express.json(), async (req, res) => {
         const buffer = await downloadToBuffer(key);
         const { Document, Packer, Paragraph, TextRun, ImageRun } = docx;
 
-        // Use Python Extractor
+        // Use Go Extractor
         const inputPath = path.join('/tmp', `input_extract_${uuidv4()}.pdf`);
         await fs.promises.writeFile(inputPath, buffer);
         
-        const jsonStr = await runPythonProcess('extract', inputPath);
+        const jsonStr = await runProcessor('extract', inputPath);
         const pages = JSON.parse(jsonStr);
         
         await fs.promises.unlink(inputPath).catch(() => {});
@@ -905,7 +909,7 @@ router.post('/process/pdf-to-excel', express.json(), async (req, res) => {
         
         const inputPath = path.join('/tmp', `input_extract_${uuidv4()}.pdf`);
         await fs.promises.writeFile(inputPath, buffer);
-        const jsonStr = await runPythonProcess('extract', inputPath);
+        const jsonStr = await runProcessor('extract', inputPath);
         const pages = JSON.parse(jsonStr);
         await fs.promises.unlink(inputPath).catch(() => {});
 
@@ -975,7 +979,7 @@ router.post('/process/pdf-to-pptx', express.json(), async (req, res) => {
         
         const inputPath = path.join('/tmp', `input_extract_${uuidv4()}.pdf`);
         await fs.promises.writeFile(inputPath, buffer);
-        const jsonStr = await runPythonProcess('extract', inputPath);
+        const jsonStr = await runProcessor('extract', inputPath);
         const pages = JSON.parse(jsonStr);
         await fs.promises.unlink(inputPath).catch(() => {});
 
@@ -1043,8 +1047,8 @@ router.post('/process/protect', express.json(), async (req, res) => {
         const outputPath = path.join('/tmp', `output_protect_${uuidv4()}.pdf`);
         await fs.promises.writeFile(inputPath, buffer);
 
-        // Call Python
-        await runPythonProcess('protect', inputPath, outputPath, password);
+        // Call Go
+        await runProcessor('protect', inputPath, outputPath, password);
         
         const protectedBytes = await fs.promises.readFile(outputPath);
 
@@ -1076,8 +1080,8 @@ router.post('/process/compress', express.json(), async (req, res) => {
         const outputPath = path.join('/tmp', `output_compress_${uuidv4()}.pdf`);
         await fs.promises.writeFile(inputPath, buffer);
 
-        // Call Python
-        await runPythonProcess('compress', inputPath, outputPath);
+        // Call Go
+        await runProcessor('compress', inputPath, outputPath);
         
         if (await fileExists(outputPath)) {
             const compressedBuffer = await fs.readFile(outputPath);

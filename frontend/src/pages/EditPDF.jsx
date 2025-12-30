@@ -396,8 +396,7 @@ const EditPDF = () => {
                 fill: 'white',
                 selectable: false,
                 evented: false,
-                excludeFromExport: true // Logic needed later to exclude visual whiteout but include semantic logic?
-                // Actually for "Edit Text" we want the whiteout to be visual in the PDF too (overlay).
+                data: { type: 'redact' }
            });
 
            const text = new fabric.IText(hoveredTextBlock.text, {
@@ -658,7 +657,16 @@ const EditPDF = () => {
                 const pdfWidth = fabricWidth / exportScale;
                 const pdfHeight = fabricHeight / exportScale;
 
-                if (obj.data && obj.data.type === 'link') {
+                if (obj.data && obj.data.type === 'redact') {
+                    semanticOps.push({
+                        page: pIndex - 1,
+                        type: 'redact',
+                        x: pdfX,
+                        y: pdfY,
+                        width: pdfWidth,
+                        height: pdfHeight
+                    });
+                } else if (obj.data && obj.data.type === 'link') {
                     semanticOps.push({
                         page: pIndex - 1,
                         type: 'link',

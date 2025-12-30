@@ -4,7 +4,7 @@
   functions = "netlify/functions"
 
 [build.environment]
-  PYTHON_VERSION = "3.9"
+  GO_IMPORT_PATH = "processor"
 
 
 [[redirects]]
