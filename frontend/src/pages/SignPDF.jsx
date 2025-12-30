@@ -257,7 +257,7 @@ const SignPDF = () => {
                 onClose={() => setShowSignModal(false)} 
                 onSave={addSignature} 
             />
-            </div>
+
 
             {/* Bottom Action Bar */}
             <div className="mt-6 pt-4 border-t border-gray-100 flex justify-center sticky bottom-0 bg-white">
