@@ -394,6 +394,7 @@ router.post('/process/protect', express.json(), async (req, res) => {
     try {
         const { key, password } = req.body;
         if (!key || !password) return res.status(400).json({ error: "File and password required." });
+        if (password.length < 6) return res.status(400).json({ error: "Password must be at least 6 characters long." });
 
         const buffer = await downloadToBuffer(key);
         const pdfDoc = await PDFDocument.load(buffer);

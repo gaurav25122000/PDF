@@ -21,6 +21,10 @@ const ProtectPDF = () => {
 
   const processFile = async () => {
     if (!file || !password) return;
+    if (password.length < 6) {
+        setError("Password must be at least 6 characters long.");
+        return;
+    }
 
     setLoading(true);
     setError(null);
@@ -108,6 +112,7 @@ const ProtectPDF = () => {
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-marvel-red focus:border-red-500 outline-none transition"
                 />
+                <p className="text-xs text-gray-500 mt-1">Minimum 6 characters required.</p>
              </div>
              
             {error && (
