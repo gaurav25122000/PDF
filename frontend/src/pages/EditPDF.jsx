@@ -11,18 +11,18 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import * as pdfjsLib from 'pdfjs-dist';
+import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import * as fabric from 'fabric';
 
 // Configure PDF.js worker
-// Try to use the worker from public folder, but ensure it's loaded
-pdfjsLib.GlobalWorkerOptions.workerSrc = `/pdf.worker.min.mjs`;
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 const EditPDF = () => {
   const navigate = useNavigate();
   const [file, setFile] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(false); // eslint-disable-line no-unused-vars
   const [processing, setProcessing] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState(null); // eslint-disable-line no-unused-vars
   
   // PDF State
   const [pdfDoc, setPdfDoc] = useState(null);
@@ -114,10 +114,6 @@ const EditPDF = () => {
               // viewport.scale is the total scale factor (1.5 * scale)
               const width = item.width * viewport.scale;
 
-              // PDF.js coordinates: (0,0) is top-left in viewport transform usually?
-              // The tx[4], tx[5] are the origin of the text baseline.
-              // So y is baseline. Top is y - height.
-
               return {
                   text: item.str,
                   x: tx[4],
@@ -133,6 +129,9 @@ const EditPDF = () => {
 
       } catch (e) {
           console.error("Failed to extract text:", e);
+          if (e.message && e.message.includes('Util')) {
+              alert("Critical Error: PDF.js Utility missing. Please report this bug.");
+          }
       }
   };
 
@@ -141,7 +140,8 @@ const EditPDF = () => {
     if (fabricCanvasRef.current) {
         const json = fabricCanvasRef.current.toJSON();
         console.log(`Saving state for page ${currentPage}`, json);
-        pageStates.current[currentPage] = json;
+        // Save the scale at which these coordinates are valid
+        pageStates.current[currentPage] = { json, scale };
     }
   };
   
@@ -153,12 +153,18 @@ const EditPDF = () => {
           setLoading(true);
           try {
              const page = await pdfDoc.getPage(currentPage);
-             const viewport = page.getViewport({ scale: 1.5 * scale }); // Base quality + zoom
+             // High quality rendering: Use 1.5 multiplier for internal canvas size
+             // But display it at 'scale' size on screen.
+             const QUALITY = 1.5;
+             const viewport = page.getViewport({ scale: scale * QUALITY });
              
-             // Setup Canvas wrapper size
+             // Setup Canvas wrapper size (Display Size)
+             // We want the display size to match the PDF at 'scale'
+             // viewport.width is (scale * 1.5) * PDF_WIDTH
+             // Display width should be (scale * 1) * PDF_WIDTH = viewport.width / 1.5
              if (canvasWrapperRef.current) {
-                 canvasWrapperRef.current.style.width = `${viewport.width}px`;
-                 canvasWrapperRef.current.style.height = `${viewport.height}px`;
+                 canvasWrapperRef.current.style.width = `${viewport.width / QUALITY}px`;
+                 canvasWrapperRef.current.style.height = `${viewport.height / QUALITY}px`;
              }
 
              // Render PDF to an image/canvas for background
@@ -192,6 +198,7 @@ const EditPDF = () => {
              fabricCanvasRef.current = null;
         }
       };
+      // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pdfDoc, currentPage, scale]);
 
   const initFabric = (width, height, bgDataUrl) => {
@@ -244,7 +251,30 @@ const EditPDF = () => {
         // Restore state if exists
         if (pageStates.current[currentPage]) {
             console.log("Restoring page state");
-            canvas.loadFromJSON(pageStates.current[currentPage]).then(() => {
+            const { json, scale: savedScale } = pageStates.current[currentPage];
+
+            // Calculate scale ratio if scale changed
+            // New canvas dimensions are proportional to 'scale' (via viewport)
+            // Saved json coordinates are proportional to 'savedScale'
+            // We need to scale objects by (currentScale / savedScale)
+
+            // Note: initFabric receives 'width' which is viewport.width
+            // viewport.width = PDF_WIDTH * scale * QUALITY
+
+            canvas.loadFromJSON(json).then(() => {
+                if (savedScale && savedScale !== scale) {
+                     const ratio = scale / savedScale;
+                     console.log(`Scaling objects by ratio ${ratio} (from ${savedScale} to ${scale})`);
+
+                     canvas.getObjects().forEach(obj => {
+                         obj.scaleX = obj.scaleX * ratio;
+                         obj.scaleY = obj.scaleY * ratio;
+                         obj.left = obj.left * ratio;
+                         obj.top = obj.top * ratio;
+                         obj.setCoords();
+                     });
+                }
+
                 canvas.requestRenderAll();
                 console.log("Page state restored");
             });
@@ -281,6 +311,7 @@ const EditPDF = () => {
     if (fabricCanvasRef.current) {
         updateCanvasTool(fabricCanvasRef.current);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tool, color, strokeWidth]);
 
   const [hoveredTextBlock, setHoveredTextBlock] = useState(null);
@@ -631,9 +662,9 @@ const EditPDF = () => {
         });
 
         // 2. Iterate pages and generate overlays/ops
-        for (const [pIndexStr, json] of Object.entries(pageStates.current)) {
+        for (const [pIndexStr, state] of Object.entries(pageStates.current)) {
             const pIndex = parseInt(pIndexStr);
-            const fabricState = json;
+            const { json: fabricState, scale: savedScale } = state;
             
             if (!fabricState.objects || fabricState.objects.length === 0) continue;
 
@@ -648,27 +679,55 @@ const EditPDF = () => {
             
             await tempCanvas.loadFromJSON(fabricState);
             
+            // If the saved state was at a different scale than 1.0 (or whatever export scale), we need to handle it.
+            // But wait, we just loaded JSON into a canvas of size 'viewport.width'.
+            // If 'savedScale' != 1.0, the objects in JSON are scaled.
+            // Our viewport is at scale 1.5 (fixed export scale).
+            // We need to scale objects from 'savedScale' to '1.0' (export base).
+
+            // Actually, let's look at export logic:
+            // viewport = page.getViewport({ scale: 1.5 });
+            // exportScale = 1.5;
+
+            // The JSON coordinates are based on 'savedScale' * 1.5 (QUALITY).
+            // We need to convert them to 'exportScale' * 1.5 space?
+            // Or just convert from Saved Space -> PDF Points -> Export Space?
+
+            // Simplest: Convert everything to PDF Points (72 DPI).
+            // Coordinate in JSON / (savedScale * 1.5) = PDF Point.
+
+            const savedQuality = 1.5; // Assumed constant
+            const conversionFactor = 1 / (savedScale * savedQuality);
+
             const objects = tempCanvas.getObjects();
             const visualObjects = [];
             const semanticOps = [];
-            const exportScale = 1.5; // Matches viewport scale used for extraction and rendering
 
             // Separate Semantic vs Visual
             for (const obj of objects) {
-                // Coordinates in PDF Points (72DPI) vs Fabric Pixels (scaled by 1.5)
-                // We must divide by exportScale to get back to PDF points.
+                // Coordinates in PDF Points (72DPI)
 
-                // Fabric Top-Left (Pixels)
+                // Fabric Top-Left (Pixels in saved state)
                 const fabricLeft = obj.left;
                 const fabricTop = obj.top;
                 const fabricWidth = obj.width * obj.scaleX;
                 const fabricHeight = obj.height * obj.scaleY;
 
                 // PDF Bottom-Left (Points)
-                const pdfX = fabricLeft / exportScale;
-                const pdfY = (viewport.height - (fabricTop + fabricHeight)) / exportScale;
-                const pdfWidth = fabricWidth / exportScale;
-                const pdfHeight = fabricHeight / exportScale;
+                // Using conversionFactor to get unscaled points
+                const pdfX = fabricLeft * conversionFactor;
+                // PDF Height is unscaled. viewport.height is scaled by (1.5 * 1.5)?? No.
+                // viewport was created with scale 1.5.
+                // But we want Y relative to unscaled page height?
+                // pdfY = (pageHeight - (fabricTop + fabricHeight)*conversionFactor)
+
+                // Let's get raw page height
+                const pageRawViewport = page.getViewport({ scale: 1.0 });
+
+                const pdfY = pageRawViewport.height - ((fabricTop + fabricHeight) * conversionFactor);
+
+                const pdfWidth = fabricWidth * conversionFactor;
+                const pdfHeight = fabricHeight * conversionFactor;
 
                 if (obj.data && obj.data.type === 'redact') {
                     semanticOps.push({
@@ -700,22 +759,45 @@ const EditPDF = () => {
                         height: pdfHeight
                     });
                 } else if (obj.type === 'i-text') {
-                     const fontSize = (obj.fontSize * obj.scaleY) / exportScale;
+                     const fontSize = (obj.fontSize * obj.scaleY) * conversionFactor;
 
                      semanticOps.push({
                          page: pIndex - 1,
                          type: 'text',
                          text: obj.text,
                          x: pdfX,
-                         y: pdfY + (pdfHeight * 0.2),
+                         y: pdfY + (pdfHeight * 0.2), // Approx baseline adjustment
                          fontSize: fontSize,
                          color: obj.fill
                      });
                 } else {
+                    // For visual overlay, we need to match the export viewport (scale 1.5)
+                    // If savedScale != 1.0, we must scale the object to match 1.5 scale.
+                    // Scale Factor = 1.5 / (savedScale * 1.5) = 1 / savedScale?
+                    // No. Target scale is 1.5. Source scale is savedScale.
+                    // If savedScale=2, we shrink.
+                    // If savedScale=0.5, we grow.
+                    // Wait, we already computed PDF points.
+                    // To render on tempCanvas (scale 1.5), we need to scale up from PDF points by 1.5.
+
+                    // Reset to unscaled then scale to 1.5
+                    // obj coords are in savedScale*1.5 space.
+                    // target is 1.5 space.
+                    // ratio = 1.5 / (savedScale * 1.5) = 1 / savedScale.
+
+                    if (savedScale !== 1) {
+                        const ratio = 1.0 / savedScale;
+                        obj.scaleX = obj.scaleX * ratio;
+                        obj.scaleY = obj.scaleY * ratio;
+                        obj.left = obj.left * ratio;
+                        obj.top = obj.top * ratio;
+                        obj.setCoords();
+                    }
+
                     visualObjects.push(obj);
                 }
             }
-            
+
             // 3. Render Visual Overlay (Drawings, Images, Highlights, Whiteouts)
             // IMPORTANT: Render Overlay FIRST so it is behind text/forms (allowing whiteout to hide original content but not new content)
             if (visualObjects.length > 0) {
@@ -723,7 +805,8 @@ const EditPDF = () => {
                 // Add back only visual objects
                 visualObjects.forEach(obj => tempCanvas.add(obj));
 
-                const overlayDataUrl = tempCanvas.toDataURL({ format: 'png', enableRetinaScaling: true });
+                // We use enableRetinaScaling: false because viewport is already high res (1.5)
+                const overlayDataUrl = tempCanvas.toDataURL({ format: 'png', enableRetinaScaling: false });
                 const overlayBlob = await (await fetch(overlayDataUrl)).blob();
                 const overlayName = `overlay_p${pIndex}_${Date.now()}.png`;
 
@@ -778,8 +861,6 @@ const EditPDF = () => {
         setProcessing(false);
     }
   };
-
-  const jsonLd = { /* ... keep existing ... */ };
 
   if (!file) {
       return (
@@ -974,7 +1055,8 @@ const EditPDF = () => {
 
            {/* Canvas Area */}
            <div className="flex-1 bg-gray-100 overflow-auto relative flex justify-center p-8">
-               <div className="relative shadow-2xl transition-transform" style={{ transform: `scale(${scale})`, transformOrigin: 'top center' }}>
+               {/* Removed transform: scale() to fix coordinate mapping issues. Size is controlled by canvas style. */}
+               <div className="relative shadow-2xl origin-top" >
                     <div ref={canvasWrapperRef} className="bg-white">
                         <canvas ref={canvasRef} />
                     </div>
