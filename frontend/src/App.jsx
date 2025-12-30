@@ -73,7 +73,7 @@ function App() {
                     <Route path="/pdf-to-powerpoint" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><PdfToPptx /></div>} />
                     <Route path="/word-to-pdf" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><WordToPdf /></div>} />
                     <Route path="/excel-to-pdf" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><ExcelToPdf /></div>} />
-                    <Route path="/edit-pdf" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><EditPDF /></div>} />
+                    <Route path="/edit-pdf" element={<div className="pointer-events-auto absolute inset-0 bg-white z-50"><EditPDF /></div>} />
                     <Route path="/sign-pdf" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><SignPDF /></div>} />
                     <Route path="/protect-pdf" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><ProtectPDF /></div>} />
                     <Route path="/unlock-pdf" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><UnlockPDF /></div>} />
