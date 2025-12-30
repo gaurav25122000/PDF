@@ -92,7 +92,13 @@ const JpgToPdf = () => {
 
       {files.length === 0 ? (
         <div className="w-full">
-            <FileUploader onFilesSelected={handleFiles} multiple={true} accept="image/*" />
+            <FileUploader 
+              onFilesSelected={handleFiles} 
+              multiple={true} 
+              accept="image/*"
+              label1="Select JPG images"
+              label2="or drop JPGs here" 
+            />
         </div>
       ) : (
         <div className="w-full">

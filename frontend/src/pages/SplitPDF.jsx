@@ -24,8 +24,9 @@ const SplitPDF = () => {
         setError("Please select a PDF file.");
         return;
     }
-    if (!range.trim()) {
-        setError("Please enter page ranges (e.g., 1-5, 8).");
+    const rangePattern = /^(\d+(-\d+)?)(,\s*\d+(-\d+)?)*$/;
+    if (!range.trim() || !rangePattern.test(range.trim())) {
+        setError("Invalid format. Please use '1-5, 8, 11-13'.");
         return;
     }
 

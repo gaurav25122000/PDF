@@ -200,11 +200,11 @@ const Home = () => {
       <UsageBanner />
 
       <div className="bg-marvel-black text-white py-20 px-4">
-        <div className="max-w-4xl mx-auto text-center">
+        <div className="w-full px-4 text-center">
           <motion.h1 
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="font-heading text-5xl md:text-7xl font-extrabold mb-6 tracking-tighter uppercase"
+            className="font-heading text-4xl md:text-5xl font-extrabold mb-6 tracking-tighter uppercase w-full block"
           >
             Unleash the Power of <span className="text-marvel-red">PDFs</span>
           </motion.h1>
@@ -248,7 +248,7 @@ const Home = () => {
             variants={container}
             initial="hidden"
             animate="show"
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+            className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6"
         >
           {filteredTools.map((tool, index) => (
             <motion.div variants={item} key={tool.to} className="h-full">

@@ -7,7 +7,17 @@ import React, { useCallback, useState } from 'react';
 */
 import { UploadCloud, File } from 'lucide-react';
 
-const FileUploader = ({ onFilesSelected, multiple = false, accept = ".pdf" }) => {
+const FileUploader = ({ onFilesSelected, multiple = false, accept = ".pdf", label1 = "Select PDF files", label2 = "or drop PDFs here" }) => {
+// ...
+// (inside JSX)
+        <div>
+          <p className="text-xl font-bold text-gray-700">
+            {label1}
+          </p>
+          <p className="text-gray-500 mt-1">
+            {label2}
+          </p>
+        </div>
   const [isDragging, setIsDragging] = useState(false);
 
   const handleDragOver = (e) => {
@@ -62,10 +72,10 @@ const FileUploader = ({ onFilesSelected, multiple = false, accept = ".pdf" }) =>
         </div>
         <div>
           <p className="text-xl font-bold text-gray-700">
-            Select PDF files
+            {label1}
           </p>
           <p className="text-gray-500 mt-1">
-            or drop PDFs here
+            {label2}
           </p>
         </div>
       </div>

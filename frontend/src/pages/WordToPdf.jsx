@@ -13,7 +13,12 @@ const WordToPdf = () => {
 
   const handleFiles = (fileList) => {
     if (fileList.length > 0) {
-        setFile(fileList[0]);
+        const selectedFile = fileList[0];
+        if (!selectedFile.name.match(/\.(doc|docx)$/i)) {
+             setError("Please select a valid Word document (.doc or .docx).");
+             return;
+        }
+        setFile(selectedFile);
         setError(null);
     }
   };
@@ -83,7 +88,13 @@ const WordToPdf = () => {
 
       {!file ? (
         <div className="w-full">
-            <FileUploader onFilesSelected={handleFiles} multiple={false} accept=".doc,.docx" />
+            <FileUploader 
+              onFilesSelected={handleFiles} 
+              multiple={false} 
+              accept=".doc,.docx" 
+              label1="Select Word files"
+              label2="or drop Word documents here"
+            />
         </div>
       ) : (
         <div className="w-full max-w-lg mx-auto">

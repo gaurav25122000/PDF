@@ -83,7 +83,13 @@ const ExcelToPdf = () => {
 
       {!file ? (
         <div className="w-full">
-            <FileUploader onFilesSelected={handleFiles} multiple={false} accept=".xlsx,.xls" />
+            <FileUploader 
+              onFilesSelected={handleFiles} 
+              multiple={false} 
+              accept=".xlsx,.xls"
+              label1="Select Excel files"
+              label2="or drop Excel spreadsheets here"
+            />
         </div>
       ) : (
         <div className="w-full max-w-lg mx-auto">
