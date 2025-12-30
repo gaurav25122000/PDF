@@ -676,7 +676,6 @@ router.post('/process/word-to-pdf', express.json(), async (req, res) => {
     }
 });
 
-import axios from 'axios';
 
 // Helper to run Python Process (via S3 + HTTP)
 const runPythonProcess = async (command, inputPath, outputPath, password) => {
@@ -715,32 +714,40 @@ const runPythonProcess = async (command, inputPath, outputPath, password) => {
     };
     
     // 2. Call Python Function
-    // URL: process.env.URL + /.netlify/functions/processor
-    // Local dev: http://localhost:8888/.netlify/functions/processor (if netlify dev)
-    // Or if running via `npm run dev` (vite+express), we don't have the python function running unless `netlify dev`.
-    
-    const baseUrl = process.env.URL || 'http://localhost:8888'; // Netlify environment variable
+    const baseUrl = process.env.URL || 'http://localhost:8888';
     const processorUrl = `${baseUrl}/.netlify/functions/processor`;
 
     console.log(`[Processor] calling ${processorUrl} with command ${command}`);
     
     try {
-        const response = await axios.post(processorUrl, payload, {
-            maxContentLength: Infinity,
-            maxBodyLength: Infinity,
-            timeout: 25000 // 25s timeout (Netlify max 26s for sync)
+        const response = await fetch(processorUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+            // fetch doesn't have timeout option by default in Node < 18 or specific envs without AbortController
+            // but standard fetch usually waits.
         });
         
-        const data = response.data; // { status: 'success', data: ... }
+        if (!response.ok) {
+             const errText = await response.text();
+             throw new Error(`Python Status ${response.status}: ${errText}`);
+        }
+        
+        const respJson = await response.json(); // { statusCode: 200, body: "..." }
+        // Netlify Functions return: { statusCode, body } structure IF invoked directly?
+        // Wait, if we call via HTTP URL, we get the HTTP response directly.
+        // The processor python returns { statusCode, body: string }.
+        // So response.json() will be that object? 
+        // No, if we call the http endpoint, Netlify unpacks the response.
+        // The `body` in the Python return value becomes the HTTP response body.
+        // So `respJson` will be the JSON parsed from Python's body string.
+        
+        const data = respJson; // The body content parsed as JSON
         
         if (outputPath && outputKey) {
             // Python said success. Download result from S3 to outputPath.
             const resultBuffer = await downloadToBuffer(outputKey);
             await fs.promises.writeFile(outputPath, resultBuffer);
-            
-            // Allow background cleanup of S3 keys? S3 lifecycle or delete now.
-            // await deleteObject(inputKey); // Need delete helper?
-            // await deleteObject(outputKey);
         }
 
         if (command === 'extract') {
@@ -750,8 +757,8 @@ const runPythonProcess = async (command, inputPath, outputPath, password) => {
         return "Success";
 
     } catch (e) {
-        console.error("Processor Error:", e.response?.data || e.message);
-        throw new Error(`Python Processing Failed: ${JSON.stringify(e.response?.data) || e.message}`);
+        console.error("Processor Error:", e.message);
+        throw new Error(`Python Processing Failed: ${e.message}`);
     }
 };
 
