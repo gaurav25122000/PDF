@@ -3,7 +3,7 @@ import express from 'express';
 import serverless from 'serverless-http';
 import cors from 'cors';
 import multer from 'multer';
-import { PDFDocument, degrees } from 'pdf-lib';
+import { PDFDocument, degrees, rgb, PDFName, PDFString } from 'pdf-lib';
 import archiver from 'archiver';
 import { Stream } from 'stream';
 import fs from 'fs';
@@ -542,6 +542,7 @@ router.post('/process/edit', express.json(), async (req, res) => {
         const buffer = await downloadToBuffer(key);
         const pdfDoc = await PDFDocument.load(buffer);
         const pages = pdfDoc.getPages();
+        const font = await pdfDoc.embedFont("Helvetica");
 
         for (const op of ops) {
             if (op.page >= pages.length) continue;
@@ -573,13 +574,14 @@ router.post('/process/edit', express.json(), async (req, res) => {
                 const pageHeight = page.getHeight();
 
                 let drawOpts = {
-                    x: 0,
-                    y: 0,
+                    x: op.x || 0,
+                    y: op.y || 0,
                     width: op.width || image.width,
                     height: op.height || image.height,
                 };
 
                 if (op.key) {
+                    // Overlay mode fills page
                     drawOpts = {
                         x: 0,
                         y: 0,
@@ -589,14 +591,65 @@ router.post('/process/edit', express.json(), async (req, res) => {
                 }
 
                 page.drawImage(image, drawOpts);
+
             } else if (op.type === 'text') {
-                const font = await pdfDoc.embedFont("Helvetica");
+                // Parse hex color if string (e.g. "#FF0000")
+                let color = undefined;
+                if (op.color && op.color.startsWith('#')) {
+                    const r = parseInt(op.color.slice(1, 3), 16) / 255;
+                    const g = parseInt(op.color.slice(3, 5), 16) / 255;
+                    const b = parseInt(op.color.slice(5, 7), 16) / 255;
+                    color = rgb(r, g, b);
+                }
+
                 page.drawText(op.text, {
                     x: op.x || 0,
                     y: op.y || 0,
                     size: op.fontSize || 12,
-                    color: op.color ? undefined : undefined,
+                    color: color,
                     font: font
+                });
+
+            } else if (op.type === 'link') {
+                // Low-level Link Annotation
+                // Rect is [llx, lly, urx, ury]
+                const rect = [op.x, op.y, op.x + op.width, op.y + op.height];
+
+                const linkAnnot = pdfDoc.context.register(
+                    pdfDoc.context.obj({
+                        Type: 'Annot',
+                        Subtype: 'Link',
+                        Rect: rect,
+                        Border: [0, 0, 0], // No border visible
+                        A: {
+                            Type: 'Action',
+                            S: 'URI',
+                            URI: PDFString.of(op.url)
+                        }
+                    })
+                );
+
+                page.node.addAnnot(linkAnnot);
+
+            } else if (op.type === 'form_text') {
+                const form = pdfDoc.getForm();
+                const textField = form.createTextField(op.name + '_' + Date.now()); // Ensure unique
+                textField.setText('');
+                textField.addToPage(page, {
+                    x: op.x,
+                    y: op.y,
+                    width: op.width,
+                    height: op.height,
+                });
+
+            } else if (op.type === 'form_checkbox') {
+                const form = pdfDoc.getForm();
+                const checkBox = form.createCheckBox(op.name + '_' + Date.now());
+                checkBox.addToPage(page, {
+                    x: op.x,
+                    y: op.y,
+                    width: op.width,
+                    height: op.height,
                 });
             }
         }
