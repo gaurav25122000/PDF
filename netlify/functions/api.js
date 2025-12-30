@@ -43,7 +43,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { exec } from 'child_process';
 import util from 'util';
 const execAsync = util.promisify(exec);
-import { Document, Packer, Paragraph, TextRun } from 'docx';
+import * as docx from 'docx';
 
 // Configure multer for memory storage
 const upload = multer({
