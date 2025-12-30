@@ -881,7 +881,6 @@ router.post('/process/pdf-to-excel', express.json(), async (req, res) => {
         const inputPath = path.join('/tmp', `input_extract_${uuidv4()}.pdf`);
         await fs.promises.writeFile(inputPath, buffer);
         const jsonStr = await runProcessor('extract', { inputPath });
-        const jsonStr = await runProcessor('extract', { inputPath });
         const pages = JSON.parse(jsonStr);
         await fs.promises.unlink(inputPath).catch(() => {});
 
