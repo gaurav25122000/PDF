@@ -10,7 +10,7 @@ export default defineConfig({
         output: {
             manualChunks: {
                 vendor: ['react', 'react-dom', 'framer-motion', 'lucide-react'],
-                pdf: ['pdf-lib', 'jspdf'] 
+                // pdf: ['pdf-lib', 'jspdf'] // Removed to fix build error 
             }
         }
     }
