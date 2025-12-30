@@ -14,6 +14,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 import * as fabric from 'fabric';
 
 // Configure PDF.js worker
+// Try to use the worker from public folder, but ensure it's loaded
 pdfjsLib.GlobalWorkerOptions.workerSrc = `/pdf.worker.min.mjs`;
 
 const EditPDF = () => {
@@ -361,7 +362,14 @@ const EditPDF = () => {
           return;
       }
 
-      if (!hoveredTextBlock) return;
+      if (!hoveredTextBlock) {
+          if (['highlight', 'strikeout', 'text_edit'].includes(currentTool)) {
+              if (textBlocks.length === 0) {
+                  alert("No selectable text found on this page. These tools require text layer.");
+              }
+          }
+          return;
+      }
 
       if (currentTool === 'highlight') {
            const rect = new fabric.Rect({
