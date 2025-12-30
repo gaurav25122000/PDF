@@ -121,21 +121,18 @@ const EditPDF = () => {
 
   // Helper: Consolidate PDF text items into lines
   const consolidateTextItems = (items, viewport) => {
-      // 1. Sort by Y (descending for PDF bottom-up, but we used transformed coords so they might be top-down? 
-      //    Actually, let's normalize everything first.
-      
       const parsedItems = items.map(item => {
           const tx = multiplyTransformMatrices(viewport.transform, item.transform);
+          // tx = [scaleX, skewY, skewX, scaleY, posX, posY]
+          // PDF Space (User) -> Canvas Space (Device)
+          
           const fontHeight = Math.sqrt((tx[2] * tx[2]) + (tx[3] * tx[3]));
-          const width = item.width * viewport.scale; // Approx width
-          // tx[5] is Y. In PDF structure, Y increases upwards. 
-          // But our viewport transform flips it to Canvas (Y increases downwards).
-          // So tx[5] is the Canvas Y coordinate of the baseline (roughly).
+          const width = item.width * viewport.scale; 
           
           return {
               str: item.str,
-              x: tx[4],
-              y: tx[5], // Baseline Y
+              x: tx[4], 
+              y: tx[5], // BASELINE Y in Canvas Coords
               width: width,
               height: fontHeight,
               fontHeight: fontHeight,
@@ -144,10 +141,11 @@ const EditPDF = () => {
           };
       });
 
-      // 2. Sort Primary by Y, Secondary by X
-      // Grouping tolerance for Y: 20% of font height? or fixed pixels (e.g. 5px)
+      // Sort: Top-to-Bottom (Y), then Left-to-Right (X)
+      // Note: Canvas Y increases Downwards.
       parsedItems.sort((a, b) => {
-          if (Math.abs(a.y - b.y) < (Math.min(a.fontHeight, b.fontHeight) * 0.5)) {
+          const yDiff = Math.abs(a.y - b.y);
+          if (yDiff < (Math.min(a.fontHeight, b.fontHeight) * 0.5)) {
               return a.x - b.x;
           }
           return a.y - b.y;
@@ -162,62 +160,77 @@ const EditPDF = () => {
               return;
           }
 
-          // Check if on same line (Y close enough)
+          // Check alignment
           const yDiff = Math.abs(item.y - currentLine.y);
           const sameLine = yDiff < (currentLine.fontHeight * 0.5);
           
-          // Check if adjacent (X distance not too huge)
-          // Allow some gap for spaces, but not huge columns
-          const xDiff = item.x - (currentLine.x + currentLine.width);
-          // If xDiff is very large, it might be a separate column or far text.
-          // Let's assume a "space" width is roughly fontHeight * 0.3
-          // We allow up to 3-4 spaces? 
-          const isAdjacent = xDiff < (currentLine.fontHeight * 4) && xDiff > -(currentLine.fontHeight * 0.5); // Allow slight overlap
+          // Check adjacency
+          // Calculate expected position of next char
+          const expectedNextX = currentLine.x + currentLine.width;
+          const dist = item.x - expectedNextX;
+          
+          // Allow merge if:
+          // 1. Same line
+          // 2. Distance is reasonable (not a new column)
+          // 3. Or if negative overlap is small (kerning)
+          const isAdjacent = sameLine && (dist < (currentLine.fontHeight * 3)) && (dist > -(currentLine.fontHeight * 0.5));
 
-          if (sameLine && isAdjacent) {
-              // Merge
-              // Handle space between chunks if needed?
-              // PDF extraction often strips spaces between chunks if they are positioned
-              // We might need to insert a space if the gap is significant (> 0.2em)
+          if (isAdjacent) {
               const gap = item.x - (currentLine.x + currentLine.width);
-              if (gap > (currentLine.fontHeight * 0.15) && !currentLine.str.endsWith(' ') && !item.str.startsWith(' ')) {
+              if (gap > (currentLine.fontHeight * 0.2) && !currentLine.str.endsWith(' ') && !item.str.startsWith(' ')) {
                   currentLine.str += ' ';
-              }
+              } // Add space if gap makes sense
               
               currentLine.str += item.str;
+              // Width should extend to the end of the new item
               currentLine.width = (item.x + item.width) - currentLine.x;
-              // Update Y/Height to be max/avg? Keep first one's Y usually best for baseline alignment
               currentLine.items.push(item);
           } else {
-              // Push old line, start new
               lines.push(currentLine);
               currentLine = { ...item, items: [item] };
           }
       });
       if (currentLine) lines.push(currentLine);
 
-      return lines.map(line => ({
-          text: line.str,
-          x: line.x,
-          y: line.y - line.fontHeight, // Convert baseline to top-left approximately
-          width: line.width,
-          height: line.fontHeight,
-          fontSize: line.fontHeight, // Use the font height as font size
-          fontFamily: line.fontName
-      }));
+      return lines.map(line => {
+          // Alignment Fix:
+          // line.y is Baseline.
+          // fabric Rect/IText 'top' is Top-Left corner.
+          // We need to shift UP by Ascent.
+          // Standard Approx: Ascent ~= 0.8 * fontSize.
+          const ascent = line.fontHeight * 0.9; // Adjust this if still off
+          
+          return {
+            text: line.str,
+            x: line.x,
+            y: line.y - ascent, 
+            width: line.width,
+            height: line.fontHeight * 1.1, // Slight padding for easier selection
+            fontSize: line.fontHeight,
+            fontFamily: line.fontName
+          };
+      });
   };
 
   const extractTextLayout = async (page, viewport) => {
       try {
           const textContent = await page.getTextContent();
-          
-          // Filter empty items
           const items = textContent.items.filter(item => item.str.trim().length > 0);
           
-          // Consolidate into lines
-          const blocks = consolidateTextItems(items, viewport);
+          // Debug First Item
+          if (items.length > 0) {
+              const testItem = items[0];
+              const tx = multiplyTransformMatrices(viewport.transform, testItem.transform);
+              console.log("Debug Layout Item 0:", {
+                  str: testItem.str,
+                  origX: testItem.transform[4],
+                  origY: testItem.transform[5],
+                  canvasX: tx[4],
+                  canvasY: tx[5]
+              });
+          }
 
-          console.log(`Extracted ${blocks.length} text lines for page ${page.pageNumber}`);
+          const blocks = consolidateTextItems(items, viewport);
           setTextBlocks(blocks);
           return blocks; 
 
@@ -382,21 +395,9 @@ const EditPDF = () => {
             });
         }
 
-        // Add Hover Effects for Ghosts
-        canvas.on('mouse:over', (e) => {
-            if (e.target && e.target.data && e.target.data.type === 'text_ghost') {
-                e.target.set('fill', 'rgba(0, 0, 0, 0.05)');
-                canvas.requestRenderAll();
-            }
-        });
-
-        canvas.on('mouse:out', (e) => {
-            if (e.target && e.target.data && e.target.data.type === 'text_ghost') {
-                e.target.set('fill', 'transparent');
-                canvas.requestRenderAll();
-            }
-        });
-
+        // Hover Effects Removed as per user request (Seamless Native Feel)
+        // We rely on the cursor changing to 'text' (I-beam) to indicate clickability.
+        
         // Restore state if exists
         if (pageStates.current[currentPage]) {
             console.log("Restoring page state");
@@ -510,12 +511,16 @@ const EditPDF = () => {
           else if (lower.includes('arial')) mappedFont = 'Arial';
       }
 
-      // 1. Create Whiteout (Redaction)
+      // 1. Create Whiteout (Redaction) to cover original text
+      // We add padding to ensure we fully cover the underlying pixels (preventing "replication" or double-vision)
+      const paddingX = 2;
+      const paddingY = 2;
+      
       const whiteout = new fabric.Rect({
-          left: ghost.left,
-          top: ghost.top,
-          width: ghost.width,
-          height: ghost.height,
+          left: ghost.left - paddingX,
+          top: ghost.top - paddingY,
+          width: ghost.width + (paddingX * 2),
+          height: ghost.height + (paddingY * 2),
           fill: 'white',
           selectable: false,
           evented: false,
@@ -525,7 +530,7 @@ const EditPDF = () => {
       // 2. Create Editable Text
       const editableText = new fabric.IText(text, {
           left: ghost.left,
-          top: ghost.top, // Adjustment for baseline might be needed
+          top: ghost.top, 
           fontSize: fontSize,
           fontFamily: mappedFont, // Use mapped font
           fill: 'black',
