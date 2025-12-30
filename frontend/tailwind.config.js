@@ -7,7 +7,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        'marvel-red': '#EC1D24',
+        'marvel-red': '#D81B1F',
         'marvel-black': '#202020',
         'marvel-dark': '#151515',
       },

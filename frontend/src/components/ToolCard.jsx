@@ -30,7 +30,7 @@ const ToolCard = ({ title, description, icon: Icon, to, color = "red" }) => {
         <div className={`p-3 rounded-lg ${selectedColorClass.replace('group-hover:bg-red-500 group-hover:text-white', '')} mb-4 group-hover:ring-4 ring-opacity-20 transition-all duration-300`}>
           <Icon className="w-8 h-8" /> {/* Icon size changed */}
         </div>
-        <h3 className="text-xl font-bold text-gray-800 mb-2 group-hover:text-gray-900">{title}</h3>
+        <h2 className="text-xl font-bold text-gray-800 mb-2 group-hover:text-gray-900">{title}</h2>
         <p className="text-gray-500 text-sm mb-4 leading-relaxed flex-grow">{description}</p>
         <div className="flex items-center text-sm font-medium text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
           Open Tool <ArrowRight className="w-4 h-4 ml-1" />

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Mail, Github, Twitter } from 'lucide-react';
+import { Mail } from 'lucide-react';
 
 const Footer = () => {
   return (
@@ -16,10 +16,10 @@ const Footer = () => {
                 </div>
                 <span className="ml-1 font-heading text-xl tracking-tighter text-white">PDF</span>
             </div>
-            <p className="text-sm text-gray-500 mb-4">
+            <p className="text-sm text-gray-400 mb-4">
                Legendary PDF tools for everyday heroes. Merge, split, and edit with superpower speed.
             </p>
-            <p className="text-xs text-gray-600">
+            <p className="text-xs text-gray-400">
               © {new Date().getFullYear()} MarvelPDF. All rights reserved.
             </p>
           </div>
@@ -62,8 +62,7 @@ const Footer = () => {
                     marvel.pdf.queries@gmail.com
                 </a>
                 <div className="flex space-x-4 mt-2">
-                    <a href="#" className="text-gray-500 hover:text-white transition-colors" aria-label="Github"><Github size={20} /></a>
-                    <a href="#" className="text-gray-500 hover:text-white transition-colors" aria-label="Twitter"><Twitter size={20} /></a>
+                    {/* Social links removed */}
                 </div>
             </div>
           </div>

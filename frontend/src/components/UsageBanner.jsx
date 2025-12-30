@@ -22,7 +22,16 @@ const UsageBanner = () => {
     };
 
     useEffect(() => {
-        fetchStatus();
+        // Optimization: Use cached data if available
+        if (user && user.usageToday !== undefined) {
+            setStatus({
+                usage: user.usageToday,
+                limit: user.limit || 300,
+                resetTime: user.resetTime
+            });
+        } else {
+            fetchStatus();
+        }
         window.addEventListener('usage-updated', fetchStatus); // Listen for custom event from tools
         
         // Refresh periodically 
