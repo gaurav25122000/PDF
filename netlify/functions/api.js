@@ -1,4 +1,5 @@
 import express from 'express';
+import fetch from 'node-fetch';
 import serverless from 'serverless-http';
 import cors from 'cors';
 import multer from 'multer';
@@ -728,7 +729,9 @@ const runPythonProcess = async (command, inputPath, outputPath, password) => {
 
     const processorUrl = `${baseUrl}/.netlify/functions/processor`;
 
-    console.log(`[Processor] calling ${processorUrl} with command ${command}`);
+    console.log(`[Processor] Env URL: ${process.env.URL}`);
+    console.log(`[Processor] Env DEPLOY_PRIME_URL: ${process.env.DEPLOY_PRIME_URL}`);
+    console.log(`[Processor] Final Target URL: ${processorUrl} with command ${command}`);
     
     try {
         const response = await fetch(processorUrl, {
