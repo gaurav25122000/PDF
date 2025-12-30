@@ -676,20 +676,83 @@ router.post('/process/word-to-pdf', express.json(), async (req, res) => {
     }
 });
 
-// Helper to run Python Process
+import axios from 'axios';
+
+// Helper to run Python Process (via S3 + HTTP)
 const runPythonProcess = async (command, inputPath, outputPath, password) => {
-    // Ensure python3 and pymupdf are available.
-    // In Netlify, we might need to rely on `python3` being in path.
-    // command: 'extract', 'compress', 'protect'
+    // 1. Upload Input to S3 (Intermediate)
+    // inputPath is local /tmp file. 
+    // We need to upload it to S3 so Python can download it.
     
-    let cmd = `python3 netlify/functions/process_pdf.py ${command} "${inputPath}"`;
-    if (outputPath) cmd += ` --output_path "${outputPath}"`;
-    if (password) cmd += ` --password "${password}"`;
+    // Check if inputPath exists
+    if (!fs.existsSync(inputPath)) throw new Error(`Input file not found: ${inputPath}`);
     
-    console.log(`[PyMuPDF] Executing: ${command}`);
-    const { stdout, stderr } = await execAsync(cmd);
-    if (stderr) console.error(`[PyMuPDF] Stderr: ${stderr}`);
-    return stdout;
+    const inputKey = `temp_in/${uuidv4()}.pdf`;
+    const inputBuffer = await fs.promises.readFile(inputPath);
+    await uploadBuffer(inputKey, inputBuffer, 'application/pdf');
+    
+    // Generate Presigned GET URL for Python to download
+    const inputUrl = await getDownloadUrl(inputKey); 
+    // Note: getDownloadUrl returns a signed URL valid for 1 hour usually.
+    
+    let outputUrl = null;
+    let outputKey = null;
+    
+    if (outputPath) {
+        // We need a URL where Python can PUT the result.
+        // Generate Presigned PUT URL.
+        outputKey = `temp_out/${uuidv4()}.pdf`;
+        // Since we don't have a direct "getUploadUrl" that returns a PUT url easily exposed here?
+        // Wait, `getUploadUrl` in s3.js likely does exactly that (PUTObjectCommand).
+        outputUrl = await getUploadUrl(outputKey, 'application/pdf');
+    }
+
+    const payload = {
+        command,
+        inputUrl,
+        outputUrl,
+        password
+    };
+    
+    // 2. Call Python Function
+    // URL: process.env.URL + /.netlify/functions/processor
+    // Local dev: http://localhost:8888/.netlify/functions/processor (if netlify dev)
+    // Or if running via `npm run dev` (vite+express), we don't have the python function running unless `netlify dev`.
+    
+    const baseUrl = process.env.URL || 'http://localhost:8888'; // Netlify environment variable
+    const processorUrl = `${baseUrl}/.netlify/functions/processor`;
+
+    console.log(`[Processor] calling ${processorUrl} with command ${command}`);
+    
+    try {
+        const response = await axios.post(processorUrl, payload, {
+            maxContentLength: Infinity,
+            maxBodyLength: Infinity,
+            timeout: 25000 // 25s timeout (Netlify max 26s for sync)
+        });
+        
+        const data = response.data; // { status: 'success', data: ... }
+        
+        if (outputPath && outputKey) {
+            // Python said success. Download result from S3 to outputPath.
+            const resultBuffer = await downloadToBuffer(outputKey);
+            await fs.promises.writeFile(outputPath, resultBuffer);
+            
+            // Allow background cleanup of S3 keys? S3 lifecycle or delete now.
+            // await deleteObject(inputKey); // Need delete helper?
+            // await deleteObject(outputKey);
+        }
+
+        if (command === 'extract') {
+            return JSON.stringify(data.data);
+        }
+        
+        return "Success";
+
+    } catch (e) {
+        console.error("Processor Error:", e.response?.data || e.message);
+        throw new Error(`Python Processing Failed: ${JSON.stringify(e.response?.data) || e.message}`);
+    }
 };
 
 
