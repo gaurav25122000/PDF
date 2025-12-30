@@ -699,18 +699,24 @@ const runPythonProcess = async (command, inputPath, outputPath, password) => {
     };
     
     // 2. Call Python Function
-    // We try to find the correct Base URL for the environment.
-    let baseUrl = process.env.URL;
-    if (!baseUrl) baseUrl = 'http://localhost:8888'; // Dev default
-    
-    // Use DEPLOY_PRIME_URL for deploy previews/branches if avail
-    if (process.env.DEPLOY_PRIME_URL) baseUrl = process.env.DEPLOY_PRIME_URL;
+    // Use SITE_NAME to avoid custom domain loopback issues.
+    let siteUrl;
+    if (process.env.SITE_NAME) {
+        siteUrl = `https://${process.env.SITE_NAME}.netlify.app`;
+    } else if (process.env.URL) {
+        siteUrl = process.env.URL;
+    } else {
+        siteUrl = 'http://localhost:8888';
+    }
 
-    const processorUrl = `${baseUrl}/.netlify/functions/processor`;
+    // Deploy Prime URL (PRs) takes precedence
+    if (process.env.DEPLOY_PRIME_URL) siteUrl = process.env.DEPLOY_PRIME_URL;
 
-    console.log(`[Processor] Env URL: ${process.env.URL}`);
-    console.log(`[Processor] Env DEPLOY_PRIME_URL: ${process.env.DEPLOY_PRIME_URL}`);
-    console.log(`[Processor] Final Target URL: ${processorUrl} with command ${command}`);
+    const processorUrl = `${siteUrl}/.netlify/functions/processor`;
+
+    console.log(`[Processor] SITE_NAME: ${process.env.SITE_NAME}`);
+    console.log(`[Processor] Using Base URL: ${siteUrl}`);
+    console.log(`[Processor] Calling: ${processorUrl} with command ${command}`);
     
     try {
         const response = await fetch(processorUrl, {
