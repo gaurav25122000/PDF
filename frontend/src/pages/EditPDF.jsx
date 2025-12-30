@@ -122,46 +122,63 @@ const EditPDF = () => {
   const extractTextLayout = async (page, viewport) => {
       try {
           const textContent = await page.getTextContent();
+          
+          // Basic line grouping (simple y-coordinate clustering)
           const items = textContent.items.filter(item => item.str.trim().length > 0);
-
+          
           const blocks = items.map(item => {
-              // Custom transform: viewport.transform * item.transform
-              // Note: pdfjsLib.Util.transform(t1, t2) was typically t1 * t2
               const tx = multiplyTransformMatrices(viewport.transform, item.transform);
-
               // tx is [scaleX, skewY, skewX, scaleY, posX, posY]
-              // Font size (approx height)
+              
+              // Calculate font height based on transform
               const fontHeight = Math.sqrt((tx[2] * tx[2]) + (tx[3] * tx[3]));
-
+              
               // Width needs to be scaled
               // item.width is in unscaled PDF units
-              // viewport.scale is the total scale factor (1.5 * scale)
               const width = item.width * viewport.scale;
 
+              // Angle calculation (if needed in future, for now assume 0)
+              
               return {
                   text: item.str,
                   x: tx[4],
-                  y: tx[5] - fontHeight, // Move up from baseline
+                  y: tx[5] - fontHeight, // PDF coords are bottom-left, Canvas top-left. But here we are using viewport transform which handles it? 
+                  // Wait, pdf.js viewport.transform converts PDF point to Canvas pixel.
+                  // PDF (0,0) is bottom-left. Canvas (0,0) is top-left.
+                  // The viewport transform provided by PDF.js handles this flip.
+                  // However, item.transform provides [a,b,c,d,e,f] where (e,f) is the origin of the text baseline.
+                  // In Canvas, fillText draws from baseline if textBaseline='alphabetic'.
+                  // Simply using the transformed (x,y) might place it at baseline.
+                  // Bounding box top-left needs -fontHeight (approx).
+                  
                   width: width,
                   height: fontHeight,
-                  fontSize: fontHeight
+                  fontSize: fontHeight,
+                  fontFamily: item.fontName // We might need to map this later
               };
           });
 
           console.log(`Extracted ${blocks.length} text blocks for page ${page.pageNumber}`);
           setTextBlocks(blocks);
+          return blocks; // Return for immediate usage
 
       } catch (e) {
           console.error("Failed to extract text:", e);
-          // Alert user but don't blocking everything, though tools won't work
-          alert(`Text extraction failed: ${e.message}. Text tools may not work.`);
+          return [];
       }
   };
 
   // Save current page state before switching
   const saveCurrentPageState = () => {
     if (fabricCanvasRef.current) {
-        const json = fabricCanvasRef.current.toJSON();
+        // Essential: Include 'data' in export so we save type info (redact, link, etc.)
+        const json = fabricCanvasRef.current.toJSON(['data', 'selectable', 'evented', 'hoverCursor']);
+        
+        // Filter out ghosts so we don't save/restore them (they are re-generated)
+        if (json.objects) {
+            json.objects = json.objects.filter(obj => !obj.data || obj.data.type !== 'text_ghost');
+        }
+
         console.log(`Saving state for page ${currentPage}`, json);
         // Save the scale at which these coordinates are valid
         pageStates.current[currentPage] = { json, scale };
@@ -199,11 +216,11 @@ const EditPDF = () => {
              
              const bgDataUrl = canvas.toDataURL();
 
-             // Extract Text Layout for Snapping
-             await extractTextLayout(page, viewport);
+             // Extract Text Layout for Snapping & Interactive Layer
+             const blocks = await extractTextLayout(page, viewport);
 
              // Init Fabric
-             initFabric(viewport.width, viewport.height, bgDataUrl);
+             initFabric(viewport.width, viewport.height, bgDataUrl, blocks);
 
           } catch (err) {
               console.error("Render error:", err);
@@ -224,7 +241,7 @@ const EditPDF = () => {
       // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pdfDoc, currentPage, scale]);
 
-  const initFabric = (width, height, bgDataUrl) => {
+  const initFabric = (width, height, bgDataUrl, blocks = []) => {
       console.log("Initializing Fabric with dimensions:", width, height);
 
       try {
@@ -242,6 +259,11 @@ const EditPDF = () => {
             height: height,
         });
         fabricCanvasRef.current = canvas;
+        
+        // Add functionality to handle Object selection events
+        canvas.on('selection:created', handleSelection);
+        canvas.on('selection:updated', handleSelection);
+        
         console.log("Fabric canvas created");
 
         // Robust Image Class Detection
@@ -254,7 +276,6 @@ const EditPDF = () => {
 
         // Set background
         ImageClass.fromURL(bgDataUrl).then(img => {
-            console.log("Background image loaded from URL");
             img.set({
                 originX: 'left',
                 originY: 'top',
@@ -264,25 +285,49 @@ const EditPDF = () => {
             
             canvas.backgroundImage = img;
             canvas.requestRenderAll();
-            
-            console.log("Background image set on canvas");
         }).catch(err => {
             console.error("Error loading background image:", err);
             setError("Failed to render page background.");
         });
 
+        // 1. Create Interactive Text Zones (Ghosts)
+        // These are invisible rects over text. On click/select, they convert to editable text.
+        if (blocks && blocks.length > 0) {
+            blocks.forEach((block, index) => {
+                // Ensure reasonable bounds
+                if (block.width <= 0 || block.height <= 0) return;
+
+                const ghost = new fabric.Rect({
+                    left: block.x,
+                    top: block.y,
+                    width: block.width,
+                    height: block.height,
+                    fill: 'transparent',
+                    hoverCursor: 'text',
+                    selectable: true, // Must be selectable to receive events properly in Fabric 2+
+                    lockRotation: true,
+                    lockScalingX: true,
+                    lockScalingY: true,
+                    data: { 
+                        type: 'text_ghost', 
+                        text: block.text,
+                        fontSize: block.fontSize,
+                        blockIndex: index
+                    }
+                });
+                
+                // Add hover effect?
+                // Fabric doesn't support 'hover' style natively efficiently for many objects without custom logic
+                // But we can rely on cursor change.
+                
+                canvas.add(ghost);
+            });
+        }
+
         // Restore state if exists
         if (pageStates.current[currentPage]) {
             console.log("Restoring page state");
             const { json, scale: savedScale } = pageStates.current[currentPage];
-
-            // Calculate scale ratio if scale changed
-            // New canvas dimensions are proportional to 'scale' (via viewport)
-            // Saved json coordinates are proportional to 'savedScale'
-            // We need to scale objects by (currentScale / savedScale)
-
-            // Note: initFabric receives 'width' which is viewport.width
-            // viewport.width = PDF_WIDTH * scale * QUALITY
 
             canvas.loadFromJSON(json).then(() => {
                 if (savedScale && savedScale !== scale) {
@@ -290,14 +335,37 @@ const EditPDF = () => {
                      console.log(`Scaling objects by ratio ${ratio} (from ${savedScale} to ${scale})`);
 
                      canvas.getObjects().forEach(obj => {
+                         // Don't scale ghosts again if we just re-added them? 
+                         // Actually loadFromJSON wipes the canvas usually, so ghosts would be gone?
+                         // NO: canvas.loadFromJSON replaces everything. 
+                         // So we should merge logic: 
+                         // Check if JSON includes 'text_ghost' objects? 
+                         // If we saved them, they are in JSON. If we want fresh ones (maybe new resolution), we should handle that.
+                         // Current logic: We just re-extract text every render (extractTextLayout called in useEffect).
+                         // So we should Add ghosts AFTER loadFromJSON?
+                         // OR filters objects in JSON that are ghosts and remove them?
+                         
+                         // Fix: Ghost objects usually shouldn't be saved in PDF state if we regenerate them.
+                         // But if user didn't edit them, we need them back.
+                         // Let's rely on re-generation.
+                         if (obj.data && obj.data.type === 'text_ghost') {
+                             // If we reload from JSON, we might have old ghosts. 
+                             // We can remove them and let the new 'blocks' loop (above) add fresh ones?
+                             // But wait, loadFromJSON is async and happens AFTER we added blocks above (if we don't await).
+                             // We should move block addition INSIDE or AFTER loadFromJSON.
+                         }
+                         
                          obj.scaleX = obj.scaleX * ratio;
                          obj.scaleY = obj.scaleY * ratio;
                          obj.left = obj.left * ratio;
                          obj.top = obj.top * ratio;
                          obj.setCoords();
                      });
+                     
                 }
-
+                
+                // Remove any saved ghosts from JSON to avoid duplicates with newly generated ones?
+                // Or just proceed.
                 canvas.requestRenderAll();
                 console.log("Page state restored");
             });
@@ -344,6 +412,59 @@ const EditPDF = () => {
   const isDragging = useRef(false);
   const activeShape = useRef(null);
 
+  // Handle converting ghost to editable
+  const handleSelection = (e) => {
+      const selected = e.selected ? e.selected[0] : null;
+      if (!selected || !fabricCanvasRef.current) return;
+      
+      if (selected.data && selected.data.type === 'text_ghost') {
+          convertGhostToText(selected);
+      }
+  };
+
+  const convertGhostToText = (ghost) => {
+      const canvas = fabricCanvasRef.current;
+      if (!canvas) return;
+
+      const { text, fontSize } = ghost.data;
+      
+      // 1. Create Whiteout (Redaction)
+      const whiteout = new fabric.Rect({
+          left: ghost.left,
+          top: ghost.top,
+          width: ghost.width,
+          height: ghost.height,
+          fill: 'white',
+          selectable: false,
+          evented: false,
+          data: { type: 'redact' }
+      });
+
+      // 2. Create Editable Text
+      const editableText = new fabric.IText(text, {
+          left: ghost.left,
+          top: ghost.top, // Adjustment for baseline might be needed
+          fontSize: fontSize,
+          fontFamily: 'Helvetica', // Default fallback
+          fill: 'black',
+          width: ghost.width,
+          data: { type: 'edited_text', original: text }
+      });
+      
+      // Remove ghost
+      canvas.remove(ghost);
+      
+      // Add new objects
+      canvas.add(whiteout);
+      canvas.add(editableText);
+      
+      // Select and enter editing
+      canvas.setActiveObject(editableText);
+      editableText.enterEditing();
+      editableText.selectAll();
+      canvas.requestRenderAll();
+  };
+
   const handleMouseMove = (e, canvas) => {
        // Handle dragging for rectangle creation
       if (isDragging.current && activeShape.current) {
@@ -358,36 +479,6 @@ const EditPDF = () => {
           });
           canvas.requestRenderAll();
           return;
-      }
-
-      if (!['highlight', 'strikeout', 'text_edit'].includes(toolRef.current)) {
-          // Clear preview if switching away
-          if (hoveredTextBlock) setHoveredTextBlock(null);
-          return;
-      }
-
-      const pointer = canvas.getPointer(e.e);
-      // Find intersecting text block
-      // textBlocks: { x, y, width, height }
-
-      const match = textBlocks.find(block =>
-          pointer.x >= block.x &&
-          pointer.x <= block.x + block.width &&
-          pointer.y >= block.y &&
-          pointer.y <= block.y + block.height
-      );
-
-      if (match) {
-           canvas.defaultCursor = 'pointer';
-           setHoveredTextBlock(match);
-
-           // Render Preview (Optional: could render a temp rect here, but maybe just cursor change is enough for now)
-           // Or we can draw a temp rect on a separate upper canvas, but Fabric handles objects.
-           // Let's rely on the click for the action, and maybe a subtle indication?
-
-      } else {
-           canvas.defaultCursor = 'default';
-           setHoveredTextBlock(null);
       }
   };
 
@@ -416,68 +507,46 @@ const EditPDF = () => {
           return;
       }
 
-      if (!hoveredTextBlock) {
-          if (['highlight', 'strikeout', 'text_edit'].includes(currentTool)) {
-              if (textBlocks.length === 0) {
-                  alert("No selectable text found on this page. These tools require text layer.");
-              }
+      // Explicit Highlight/Strikeout tools
+      // These could now work on the "ghost" objects too if we want?
+      // For now, let's keep them working if they intersect with ghosts, 
+      // OR we can rely on standard fabric selection?
+      
+      if (['highlight', 'strikeout'].includes(currentTool)) {
+          const pointer = canvas.getPointer(e.e);
+          // Find intersecting ghost
+          const ghost = canvas.getObjects().find(obj => 
+              obj.data && obj.data.type === 'text_ghost' && 
+              obj.containsPoint(pointer)
+          );
+          
+          if (ghost) {
+               if (currentTool === 'highlight') {
+                   const rect = new fabric.Rect({
+                        left: ghost.left,
+                        top: ghost.top,
+                        width: ghost.width,
+                        height: ghost.height,
+                        fill: 'yellow',
+                        opacity: 0.4,
+                        selectable: true
+                   });
+                   canvas.add(rect);
+               } else if (currentTool === 'strikeout') {
+                   const line = new fabric.Line([
+                       ghost.left,
+                       ghost.top + (ghost.height / 2),
+                       ghost.left + ghost.width,
+                       ghost.top + (ghost.height / 2)
+                   ], {
+                       stroke: 'red',
+                       strokeWidth: 2,
+                       selectable: true
+                   });
+                   canvas.add(line);
+               }
+               canvas.requestRenderAll();
           }
-          return;
-      }
-
-      if (currentTool === 'highlight') {
-           const rect = new fabric.Rect({
-                left: hoveredTextBlock.x,
-                top: hoveredTextBlock.y,
-                width: hoveredTextBlock.width,
-                height: hoveredTextBlock.height,
-                fill: 'yellow',
-                opacity: 0.4,
-                selectable: true,
-                evented: true
-           });
-           canvas.add(rect);
-           canvas.setActiveObject(rect);
-      } else if (currentTool === 'strikeout') {
-           const line = new fabric.Line([
-               hoveredTextBlock.x,
-               hoveredTextBlock.y + (hoveredTextBlock.height / 2),
-               hoveredTextBlock.x + hoveredTextBlock.width,
-               hoveredTextBlock.y + (hoveredTextBlock.height / 2)
-           ], {
-               stroke: 'red',
-               strokeWidth: 2,
-               selectable: true
-           });
-           canvas.add(line);
-           canvas.setActiveObject(line);
-      } else if (currentTool === 'text_edit') {
-           // Whiteout original
-           const whiteout = new fabric.Rect({
-                left: hoveredTextBlock.x,
-                top: hoveredTextBlock.y,
-                width: hoveredTextBlock.width,
-                height: hoveredTextBlock.height,
-                fill: 'white',
-                selectable: false,
-                evented: false,
-                data: { type: 'redact' }
-           });
-
-           const text = new fabric.IText(hoveredTextBlock.text, {
-               left: hoveredTextBlock.x,
-               top: hoveredTextBlock.y,
-               fontSize: hoveredTextBlock.fontSize,
-               fontFamily: 'Helvetica', // Try to match?
-               fill: 'black'
-           });
-
-           canvas.add(whiteout);
-           canvas.add(text);
-           canvas.setActiveObject(text);
-           text.enterEditing();
-           text.selectAll();
-           setTool('select');
       }
   };
 
@@ -735,7 +804,10 @@ const EditPDF = () => {
                 const pdfWidth = fabricWidth * conversionFactor;
                 const pdfHeight = fabricHeight * conversionFactor;
 
-                if (obj.data && obj.data.type === 'redact') {
+                if (obj.data && obj.data.type === 'text_ghost') {
+                    // Skip ghosts in PDF generation
+                    continue;
+                } else if (obj.data && obj.data.type === 'redact') {
                     semanticOps.push({
                         page: pIndex - 1,
                         type: 'redact',
