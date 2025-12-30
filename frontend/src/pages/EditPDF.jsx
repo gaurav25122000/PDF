@@ -701,23 +701,6 @@ const EditPDF = () => {
             });
             
             await tempCanvas.loadFromJSON(fabricState);
-            
-            // If the saved state was at a different scale than 1.0 (or whatever export scale), we need to handle it.
-            // But wait, we just loaded JSON into a canvas of size 'viewport.width'.
-            // If 'savedScale' != 1.0, the objects in JSON are scaled.
-            // Our viewport is at scale 1.5 (fixed export scale).
-            // We need to scale objects from 'savedScale' to '1.0' (export base).
-
-            // Actually, let's look at export logic:
-            // viewport = page.getViewport({ scale: 1.5 });
-            // exportScale = 1.5;
-
-            // The JSON coordinates are based on 'savedScale' * 1.5 (QUALITY).
-            // We need to convert them to 'exportScale' * 1.5 space?
-            // Or just convert from Saved Space -> PDF Points -> Export Space?
-
-            // Simplest: Convert everything to PDF Points (72 DPI).
-            // Coordinate in JSON / (savedScale * 1.5) = PDF Point.
 
             const savedQuality = 1.5; // Assumed constant
             const conversionFactor = 1 / (savedScale * savedQuality);
@@ -794,19 +777,6 @@ const EditPDF = () => {
                          color: obj.fill
                      });
                 } else {
-                    // For visual overlay, we need to match the export viewport (scale 1.5)
-                    // If savedScale != 1.0, we must scale the object to match 1.5 scale.
-                    // Scale Factor = 1.5 / (savedScale * 1.5) = 1 / savedScale?
-                    // No. Target scale is 1.5. Source scale is savedScale.
-                    // If savedScale=2, we shrink.
-                    // If savedScale=0.5, we grow.
-                    // Wait, we already computed PDF points.
-                    // To render on tempCanvas (scale 1.5), we need to scale up from PDF points by 1.5.
-
-                    // Reset to unscaled then scale to 1.5
-                    // obj coords are in savedScale*1.5 space.
-                    // target is 1.5 space.
-                    // ratio = 1.5 / (savedScale * 1.5) = 1 / savedScale.
 
                     if (savedScale !== 1) {
                         const ratio = 1.0 / savedScale;

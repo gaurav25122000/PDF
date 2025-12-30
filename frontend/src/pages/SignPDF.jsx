@@ -3,12 +3,14 @@ import { Helmet } from 'react-helmet-async';
 import ToolModal from '../components/ToolModal';
 import SEO from '../components/SEO';
 import FileUploader from '../components/FileUploader';
-import { File, Loader2, PenTool, ShieldCheck } from 'lucide-react';
+import SignatureModal from '../components/SignatureModal';
+import { File, Loader2, PenTool, ShieldCheck, Plus } from 'lucide-react';
 import axios from 'axios';
 import * as pdfjsLib from 'pdfjs-dist';
+import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import * as fabric from 'fabric';
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = `/pdf.worker.min.mjs`;
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 const SignPDF = () => {
   const [file, setFile] = useState(null);
@@ -18,9 +20,9 @@ const SignPDF = () => {
   
   const canvasRef = useRef(null);
   const fabricCanvasRef = useRef(null);
-  const signaturePadRef = useRef(null);
   const [pdfDoc, setPdfDoc] = useState(null);
-  const [isDrawing, setIsDrawing] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [showSignModal, setShowSignModal] = useState(false);
 
   const handleFiles = (fileList) => {
     if (fileList.length > 0) {
@@ -45,99 +47,91 @@ const SignPDF = () => {
       }
   };
 
-  const renderPage = async (pdf, pageNum) => {
-    if (!canvasRef.current) return;
-    
-    try {
-        const page = await pdf.getPage(pageNum);
-        const viewport = page.getViewport({ scale: 1.5 });
-        const canvas = canvasRef.current;
-        const context = canvas.getContext('2d');
-        
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
-
-        await page.render({ canvasContext: context, viewport: viewport }).promise;
-
-        const bgImage = canvas.toDataURL("image/png");
-        
-        if (!fabricCanvasRef.current) {
-            const fCanvas = new fabric.Canvas('sign-canvas', {
-                height: viewport.height,
-                width: viewport.width,
-                isDrawingMode: false 
-            });
-            fabricCanvasRef.current = fCanvas;
-            
-            fabric.Image.fromURL(bgImage, (img) => {
-                fCanvas.setBackgroundImage(img, fCanvas.renderAll.bind(fCanvas), {
-                    scaleX: fCanvas.width / img.width,
-                    scaleY: fCanvas.height / img.height
-                });
-            });
-        }
-    } catch (err) {
-        console.error("Render Page Error:", err);
-    }
-  };
-
-  // Signature Pad Logic
-  const startDrawing = (e) => {
-      const canvas = signaturePadRef.current;
-      const ctx = canvas.getContext('2d');
-      ctx.beginPath();
-      ctx.moveTo(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
-      setIsDrawing(true);
-  };
-
-  const draw = (e) => {
-      if (!isDrawing) return;
-      const canvas = signaturePadRef.current;
-      const ctx = canvas.getContext('2d');
-      ctx.lineTo(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
-      ctx.stroke();
-  };
-
-  const stopDrawing = () => {
-      setIsDrawing(false);
-  };
-
-  const clearSignature = () => {
-      const canvas = signaturePadRef.current;
-      const ctx = canvas.getContext('2d');
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-  };
-
-  const addSignatureToCanvas = () => {
-      const canvas = signaturePadRef.current;
-      const signatureImage = canvas.toDataURL();
+  // Effect to render page when currentPage or pdfDoc changes
+  useEffect(() => {
+      if (!pdfDoc) return;
       
-      if (fabricCanvasRef.current) {
-          fabric.Image.fromURL(signatureImage, (img) => {
-              img.set({
-                  left: 100,
-                  top: 100,
-                  scaleX: 0.5,
-                  scaleY: 0.5
-              });
-              fabricCanvasRef.current.add(img);
-              fabricCanvasRef.current.setActiveObject(img);
-          });
-      }
+      const render = async () => {
+          setLoading(true);
+          try {
+             const page = await pdfDoc.getPage(currentPage);
+             const viewport = page.getViewport({ scale: 1.5 }); // High quality preview
+             
+             // Render to canvas
+             if (!canvasRef.current) return;
+             // Ensure canvas has correct dimensions
+             // Using CSS for display size, logic for resolution
+             const canvas = new fabric.Canvas(canvasRef.current, {
+                 width: viewport.width,
+                 height: viewport.height
+             });
+             
+             // Destroy old canvas if exists
+             if (fabricCanvasRef.current) {
+                 fabricCanvasRef.current.dispose();
+             }
+             fabricCanvasRef.current = canvas;
+
+             // Render PDF page to image
+             const canvasEl = document.createElement('canvas');
+             const context = canvasEl.getContext('2d');
+             canvasEl.height = viewport.height;
+             canvasEl.width = viewport.width;
+             
+             await page.render({ canvasContext: context, viewport: viewport }).promise;
+             const bgDataUrl = canvasEl.toDataURL();
+             
+             // Set background
+             const ImageClass = fabric.FabricImage || fabric.Image;
+             ImageClass.fromURL(bgDataUrl).then(img => {
+                 canvas.backgroundImage = img;
+                 canvas.requestRenderAll();
+             });
+
+          } catch (err) {
+              console.error("Render error:", err);
+              setError("Failed to render page.");
+          } finally {
+              setLoading(false);
+          }
+      };
+
+      render();
+      
+      return () => {
+        if (fabricCanvasRef.current) {
+             fabricCanvasRef.current.dispose();
+             fabricCanvasRef.current = null;
+        }
+      };
+  }, [pdfDoc, currentPage]);
+
+  const addSignature = (dataUrl) => {
+    if (!fabricCanvasRef.current) return;
+    const ImageClass = fabric.FabricImage || fabric.Image;
+    ImageClass.fromURL(dataUrl).then(img => {
+        img.scaleToWidth(150);
+        fabricCanvasRef.current.add(img);
+        fabricCanvasRef.current.centerObject(img);
+        fabricCanvasRef.current.setActiveObject(img);
+    });
   };
 
   const savePdf = async () => {
     if (!file || !fabricCanvasRef.current) return;
     setProcessing(true);
     
-    // Remove background before exporting to avoid double-printing the PDF page
+    // Export at hi-res
+    // We only need the objects (signatures), not the background PDF
     const originalBg = fabricCanvasRef.current.backgroundImage;
     fabricCanvasRef.current.backgroundImage = null;
-    // Export at hi-res
     const overlayData = fabricCanvasRef.current.toDataURL({ format: 'png', multiplier: 2 });
     fabricCanvasRef.current.backgroundImage = originalBg; 
     
+    // Current logic assumes 1 page for now as per original code structure, 
+    // or we can expand to multi-page later.
     const op = {
+        // ... (rest of logic same)
         page: 0, 
         type: "image",
         data: overlayData,
@@ -233,38 +227,20 @@ const SignPDF = () => {
                 <div className="w-full md:w-80 flex flex-col gap-6 overflow-y-auto">
                     <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
                         <h3 className="font-bold text-gray-800 mb-4 flex items-center">
-                            <PenTool className="w-5 h-5 mr-2 text-marvel-red" /> New Signature
+                            <PenTool className="w-5 h-5 mr-2 text-marvel-red" /> Signature Tools
                         </h3>
                         
-                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-2 mb-2 bg-gray-50">
-                            <canvas 
-                                ref={signaturePadRef}
-                                width={250}
-                                height={100}
-                                className="w-full h-24 bg-white cursor-crosshair touch-none"
-                                onMouseDown={startDrawing}
-                                onMouseMove={draw}
-                                onMouseUp={stopDrawing}
-                                onMouseLeave={stopDrawing}
-                            />
-                        </div>
-                        
-                        <div className="flex justify-between items-center mb-4">
-                            <button onClick={clearSignature} className="text-xs text-gray-500 hover:text-marvel-red underline">
-                                Clear
-                            </button>
-                            <span className="text-xs text-gray-400">Draw above</span>
-                        </div>
-                        
                         <button 
-                            onClick={addSignatureToCanvas}
-                            className="w-full bg-gray-900 text-white font-bold py-2.5 rounded-lg hover:bg-gray-800 transition shadow-md"
+                            onClick={() => setShowSignModal(true)}
+                            className="w-full bg-marvel-red text-white font-bold py-4 rounded-xl hover:bg-red-700 transition shadow-md flex items-center justify-center gap-2 mb-4"
                         >
-                            Add to Document
+                            <Plus className="w-5 h-5" /> Add Signature
                         </button>
                         
-                        <p className="text-xs text-gray-400 mt-3 text-center leading-relaxed">
-                            Click "Add" then drag the signature on the PDF to position/resize it.
+                        <p className="text-xs text-gray-400 mt-2 text-center leading-relaxed">
+                            Click above to Draw, Type, or Upload a signature.
+                            <br/>
+                            Drag the signature on the PDF to position/resize it.
                         </p>
                     </div>
 
@@ -274,6 +250,13 @@ const SignPDF = () => {
                         </div>
                     )}
                 </div>
+            </div>
+
+            <SignatureModal 
+                isOpen={showSignModal} 
+                onClose={() => setShowSignModal(false)} 
+                onSave={addSignature} 
+            />
             </div>
 
             {/* Bottom Action Bar */}

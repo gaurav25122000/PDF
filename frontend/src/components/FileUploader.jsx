@@ -1,15 +1,7 @@
 import React, { useCallback, useState } from 'react';
-/* Note: We will implement react-dropzone functionality manually or install it. 
-   For now, simple input. ideally `npm install react-dropzone` would be good. 
-   I will use standard HTML5 drag and drop APIs for zero dependency or check if I can install react-dropzone.
-   Let's stick to simple input first, then enhance.
-   Actually, standard drag and drop is easy in React.
-*/
 import { UploadCloud, File } from 'lucide-react';
 
 const FileUploader = ({ onFilesSelected, multiple = false, accept = ".pdf", label1 = "Select PDF files", label2 = "or drop PDFs here" }) => {
-// ...
-// (inside JSX)
         <div>
           <p className="text-xl font-bold text-gray-700">
             {label1}
