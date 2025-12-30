@@ -38,8 +38,10 @@ const EditPDF = () => {
   const [tool, setTool] = useState('select'); // select, text, draw, rect, circle
   const toolRef = useRef(tool); // Ref to access tool in listeners
   const [color, setColor] = useState('#000000');
+  const [selectedTools, setSelectedTools] = useState('text');
   const [strokeWidth, setStrokeWidth] = useState(2);
-  const [selectedObject, setSelectedObject] = useState(null); // Track selected object for properties panel
+  const [selectedObject, setSelectedObject] = useState(null);
+  const [, forceUpdate] = useState(0); // Track selected object for properties panel
   
   // Data State
   // Map pageIndex (1-based) to fabric JSON string
@@ -1183,7 +1185,7 @@ const EditPDF = () => {
                                     if (fabricCanvasRef.current) {
                                         selectedObject.set('fontFamily', e.target.value);
                                         fabricCanvasRef.current.requestRenderAll();
-                                        setSelectedObject({...selectedObject}); // Force re-render
+                                        forceUpdate(n => n + 1);
                                     }
                                 }}
                                 className="border rounded p-1 text-sm w-32"
@@ -1207,7 +1209,7 @@ const EditPDF = () => {
                                         if (fabricCanvasRef.current) {
                                             selectedObject.set('fontSize', val);
                                             fabricCanvasRef.current.requestRenderAll();
-                                            setSelectedObject({...selectedObject});
+                                            forceUpdate(n => n + 1);
                                         }
                                     }}
                                     className="w-12 p-1 text-sm border-0 bg-transparent"
@@ -1222,6 +1224,7 @@ const EditPDF = () => {
                                         const next = current === 'left' ? 'center' : (current === 'center' ? 'right' : 'left');
                                         selectedObject.set('textAlign', next);
                                         fabricCanvasRef.current.requestRenderAll();
+                                        forceUpdate(n => n + 1);
                                     }
                                 }}
                                 className="p-1 hover:bg-gray-200 rounded text-xs font-bold w-6 text-center text-gray-600 border border-gray-300"
@@ -1241,6 +1244,7 @@ const EditPDF = () => {
                                             // Handling transparent?
                                             selectedObject.set('backgroundColor', e.target.value);
                                             fabricCanvasRef.current.requestRenderAll();
+                                            forceUpdate(n => n + 1);
                                         }
                                     }}
                                     className="w-6 h-6 rounded cursor-pointer border shadow-sm"
@@ -1251,6 +1255,7 @@ const EditPDF = () => {
                                         if (fabricCanvasRef.current) {
                                             selectedObject.set('backgroundColor', '');
                                             fabricCanvasRef.current.requestRenderAll();
+                                            forceUpdate(n => n + 1);
                                         }
                                     }}
                                     className="text-[10px] text-red-500 hover:underline"
