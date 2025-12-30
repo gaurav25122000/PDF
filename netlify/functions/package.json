@@ -22,5 +22,8 @@
     "serverless-http": "^3.2.0",
     "uuid": "^10.0.0",
     "xlsx": "^0.18.5"
+  },
+  "overrides": {
+    "pdfjs-dist": "2.16.105"
   }
 }

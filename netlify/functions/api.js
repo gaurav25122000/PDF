@@ -181,6 +181,39 @@ const logUsage = async (req, toolName) => {
     }
 };
 
+// Helper to check if a file exists
+const fileExists = async (path) => {
+    try {
+        await fs.promises.access(path, fs.constants.F_OK);
+        return true;
+    } catch (e) {
+        return false;
+    }
+};
+
+// Helper to get Ghostscript Path
+const getGhostscriptPath = async () => {
+    let gsPath = process.env.GS_PATH || 'gs';
+    try {
+        let currentDir;
+        try {
+            currentDir = __dirname;
+        } catch (e) {
+            const { fileURLToPath } = await import('url');
+            currentDir = path.dirname(fileURLToPath(import.meta.url));
+        }
+
+        const bundledGsPath = path.resolve(currentDir, 'bin', 'gs');
+        if (await fileExists(bundledGsPath)) {
+            gsPath = bundledGsPath;
+             // Permissions check (lazy)
+             try { await fs.chmod(gsPath, 0o755); } catch {}
+        }
+    } catch (err) {
+        console.error("Error determining GS path:", err);
+    }
+    return gsPath;
+};
 
 // --- AUTH ROUTES ---
 
@@ -397,22 +430,35 @@ router.post('/process/protect', express.json(), async (req, res) => {
         if (password.length < 6) return res.status(400).json({ error: "Password must be at least 6 characters long." });
 
         const buffer = await downloadToBuffer(key);
-        const pdfDoc = await PDFDocument.load(buffer);
-        pdfDoc.encrypt({
-            userPassword: password,
-            ownerPassword: password,
-            permissions: {
-                printing: 'highResolution',
-                modifying: false,
-                copying: false,
-                annotating: false,
-            }
-        });
+        
+        // Use Ghostscript for reliable encryption
+        const inputPath = path.join('/tmp', `input_protect_${uuidv4()}.pdf`);
+        const outputPath = path.join('/tmp', `output_protect_${uuidv4()}.pdf`);
 
-        const pdfBytes = await pdfDoc.save();
+        await fs.promises.writeFile(inputPath, buffer);
+
+        const gsPath = await getGhostscriptPath();
+
+        // 128-bit encryption (R=3) works widely.
+        // Passwords in quotes to handle simple spaces/chars (basic protection against shell expansion in exec)
+        const command = `"${gsPath}" -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 -sOwnerPassword="${password}" -sUserPassword="${password}" -dEncryptionR=3 -dKeyLength=128 -dNOPAUSE -dQUIET -dBATCH -sOutputFile="${outputPath}" "${inputPath}"`;
+        
+        console.log("[API] Executing Protect (GS)...");
+        try {
+             await execAsync(command, { env: { ...process.env, TEMP: '/tmp' } });
+        } catch (execErr) {
+             console.error("GS Protect Failed:", execErr);
+             return res.status(500).json({ error: "Encryption failed." });
+        }
+
+        const protectedBytes = await fs.promises.readFile(outputPath);
+
+        // Cleanup
+        try { await fs.promises.unlink(inputPath); } catch {}
+        try { await fs.promises.unlink(outputPath); } catch {}
 
         const resultKey = `results/${Date.now()}_${uuidv4()}_protected.pdf`;
-        await uploadBuffer(resultKey, Buffer.from(pdfBytes), 'application/pdf');
+        await uploadBuffer(resultKey, protectedBytes, 'application/pdf');
 
         await logUsage(req, 'Protect PDF');
 
@@ -420,7 +466,7 @@ router.post('/process/protect', express.json(), async (req, res) => {
         res.json({ downloadUrl });
     } catch (e) {
         console.error(e);
-        res.status(500).json({ error: "Failed." });
+        res.status(500).json({ error: "Failed to protect PDF." });
     }
 });
 
@@ -468,57 +514,13 @@ router.post('/process/compress', express.json(), async (req, res) => {
         const inputPath = path.join('/tmp', `input_${Date.now()}_${uuidv4()}.pdf`);
         const outputPath = path.join('/tmp', `output_${Date.now()}_${uuidv4()}.pdf`);
 
-        await fs.writeFile(inputPath, buffer);
+        await fs.promises.writeFile(inputPath, buffer);
 
-        // Helper to check if file exists
-        const fileExists = async (path) => {
-            try {
-                await fs.access(path);
-                return true;
-            } catch {
-                return false;
-            }
-        };
+        const gsPath = await getGhostscriptPath();
 
-        // Determine Ghostscript path
-        let gsPath = process.env.GS_PATH || 'gs';
-        
-        try {
-            // Robust __dirname for both CJS (Netlify Node Runtime) and ESM (Local Dev)
-            // In CJS build, __dirname is present. In ESM, it's not.
-            let currentDir;
-            try {
-                currentDir = __dirname;
-            } catch (e) {
-                // ESM fallback
-                const { fileURLToPath } = await import('url');
-                currentDir = path.dirname(fileURLToPath(import.meta.url));
-            }
+        // Check if environment has 'gs' if getGhostscriptPath fell back to 'gs' and it's not in path?
+        // Our helper handles fallback.
 
-            const bundledGsPath = path.resolve(currentDir, 'bin', 'gs');
-            
-            // Check if bundled exists
-            if (await fileExists(bundledGsPath)) {
-                gsPath = bundledGsPath;
-                console.log("[API] Using bundled Ghostscript:", gsPath);
-
-                // TEST BINARY EXECUTION (Verify dynamic libs)
-                try {
-                     const { stdout, stderr } = await execAsync(`"${gsPath}" --version`, { env: { ...process.env, TEMP: '/tmp' } });
-                     console.log("[API] GS Version Check:", stdout.trim());
-                } catch (verErr) {
-                     console.error("[API] GS Version Check Failed (Missing libs?):", verErr.message);
-                }
-
-            } else {
-                 console.log("[API] Bundled GS not found at", bundledGsPath, "- falling back to system 'gs'");
-            }
-        } catch (err) {
-            console.error("[API] Error determining GS path:", err);
-        }
-
-        // Command
-        // Using /screen (72 dpi) for maximum speed and compression to avoid timeouts.
         // Command
         // Optimized for SPEED: /screen (72dpi), No AutoRotate, Explicit low resolution
         const command = `"${gsPath}" -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 -dPDFSETTINGS=/screen -dAutoRotatePages=/None -dColorImageResolution=72 -dGrayImageResolution=72 -dMonoImageResolution=72 -dFastWebView=true -dNOPAUSE -dQUIET -dBATCH -sOutputFile="${outputPath}" "${inputPath}"`;
