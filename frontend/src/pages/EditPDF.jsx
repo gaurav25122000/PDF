@@ -177,7 +177,11 @@ const EditPDF = () => {
                 scaleX: 1,
                 scaleY: 1
             });
-            canvas.setBackgroundImage(img, canvas.requestRenderAll.bind(canvas));
+            
+            // Fabric v6+ change: setBackgroundImage is removed, use property
+            canvas.backgroundImage = img;
+            canvas.requestRenderAll();
+            
             console.log("Background image set on canvas");
         }).catch(err => {
             console.error("Error loading background image:", err);
