@@ -34,6 +34,27 @@ const SplitPDF = () => {
     setError(null);
 
     try {
+        // Expand ranges to explicit list (Fix for backend validation bug)
+        // Backend seems to fail on mixed "1-3,4" syntax, so we send "1,2,3,4"
+        const expandRange = (str) => {
+            const parts = str.split(',');
+            const pages = [];
+            parts.forEach(p => {
+                const part = p.trim();
+                if (part.includes('-')) {
+                    const [start, end] = part.split('-').map(Number);
+                    if (!isNaN(start) && !isNaN(end) && start <= end) {
+                        for (let i = start; i <= end; i++) pages.push(i);
+                    }
+                } else {
+                    pages.push(part);
+                }
+            });
+            return pages.join(',');
+        };
+
+        const finalRange = expandRange(range);
+
         // 1. Upload to S3
         const uploadConfigRes = await axios.post('/api/s3/upload-url', {
              filename: file.name,
@@ -48,7 +69,7 @@ const SplitPDF = () => {
         });
 
         // 2. Trigger Split
-        const response = await axios.post('/api/process/split', { key, range });
+        const response = await axios.post('/api/process/split', { key, range: finalRange });
 
         // 3. Download Result
         const { downloadUrl } = response.data;

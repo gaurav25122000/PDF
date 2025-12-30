@@ -3,7 +3,7 @@ import { Helmet } from 'react-helmet-async';
 import ToolModal from '../components/ToolModal';
 import SEO from '../components/SEO';
 import FileUploader from '../components/FileUploader';
-import { File, Loader2, Download, Image } from 'lucide-react';
+import { File, Loader2, Image } from 'lucide-react';
 import axios from 'axios';
 
 const PdfToJpg = () => {
@@ -42,18 +42,13 @@ const PdfToJpg = () => {
         const response = await axios.post('/api/process/pdf-to-jpg', { key });
 
         // 3. Download Result
-        // Note: Backend currently returns 400 for this tool, so this part won't be reached until backend is enabled.
         const { downloadUrl } = response.data;
         window.open(downloadUrl, '_blank');
         window.dispatchEvent(new Event('usage-updated'));
+        
     } catch (err) {
         console.error("PDF to JPG error:", err);
-        // Handle backend disabled message
-         if (err.response && err.response.data && err.response.data.error) {
-            setError(err.response.data.error);
-        } else {
-            setError("Failed to convert PDF to JPG.");
-        }
+        setError("Failed to convert PDF to JPG. Please try again.");
     } finally {
         setLoading(false);
     }

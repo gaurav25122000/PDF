@@ -12,9 +12,12 @@
   "dependencies": {
     "autoprefixer": "^10.4.23",
     "axios": "^1.13.2",
+    "docx": "^9.5.1",
     "fabric": "^7.0.0",
+    "file-saver": "^2.0.5",
     "framer-motion": "^12.23.26",
     "fuse.js": "^7.1.0",
+    "jszip": "^3.10.1",
     "lucide-react": "^0.562.0",
     "pdfjs-dist": "^5.4.530",
     "postcss": "^8.5.6",

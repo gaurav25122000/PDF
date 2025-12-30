@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
-import { Helmet } from 'react-helmet-async'; // Can remove
-import SEO from '../components/SEO';
 import ToolModal from '../components/ToolModal';
+import SEO from '../components/SEO';
 import FileUploader from '../components/FileUploader';
-import { File, Loader2, Download, FileText } from 'lucide-react';
-import axios from 'axios';
+import { File, Loader2, FileText } from 'lucide-react';
+import * as docx from 'docx';
+import * as pdfjsLib from 'pdfjs-dist';
+import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 const PdfToWord = () => {
   const [file, setFile] = useState(null);
@@ -20,34 +23,94 @@ const PdfToWord = () => {
 
   const processFile = async () => {
     if (!file) return;
-
     setLoading(true);
     setError(null);
 
     try {
-        // 1. Upload to S3
-        const uploadConfigRes = await axios.post('/api/s3/upload-url', {
-             filename: file.name,
-             contentType: file.type
-        });
-        const { uploadUrl, key } = uploadConfigRes.data;
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
         
-        await fetch(uploadUrl, {
-             method: 'PUT',
-             body: file,
-             headers: { 'Content-Type': file.type }
+        const docSections = [];
+
+        for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const textContent = await page.getTextContent();
+            
+            // Sort items by Y (descending for Top-to-Bottom), then X (ascending)
+            const items = textContent.items.filter(item => item.str.trim().length > 0).sort((a, b) => {
+                const yA = Math.round(a.transform[5]);
+                const yB = Math.round(b.transform[5]);
+                if (Math.abs(yA - yB) > 4) return yB - yA; // Different lines (approx 4px tolerance)
+                return a.transform[4] - b.transform[4]; // Same line, left to right
+            });
+
+            // Group into logical lines
+            const lines = [];
+            let currentLine = [];
+            let currentY = null;
+
+            items.forEach(item => {
+                const y = Math.round(item.transform[5]);
+                if (currentY === null) currentY = y;
+
+                if (Math.abs(y - currentY) > 8) { // New Line Threshold
+                    if (currentLine.length > 0) lines.push(currentLine);
+                    currentLine = [];
+                    currentY = y;
+                }
+                currentLine.push(item);
+            });
+            if (currentLine.length > 0) lines.push(currentLine);
+
+            // Convert lines to DOCX Paragraphs
+            const children = lines.map(line => {
+                // Determine paragraph alignment or style?
+                // For now, simple text runs
+                const runs = line.map(span => {
+                    // Font size scaling (PDF points vs Word half-points? Docx uses half-points usually, but 'size' prop in docx is complex)
+                    // Check docx docs: size is in half-points (1/144 inch). PDF is points (1/72 inch).
+                    // So multiply by 2.
+                    // span.transform[0] is roughly font size (scaling factor)
+                    const fontSize = Math.abs(span.transform[0]); 
+                    
+                    return new docx.TextRun({
+                        text: span.str + (span.hasEOL ? "" : " "), // Add implied space? PDF text items often split words.
+                        size: fontSize * 2, 
+                        // font: span.fontName // Font mapping is hard
+                    });
+                });
+
+                return new docx.Paragraph({
+                    children: runs,
+                    spacing: { after: 120 } // slight spacing
+                });
+            });
+
+            docSections.push({
+                properties: {},
+                children: children
+            });
+        }
+
+        const doc = new docx.Document({
+            sections: docSections
         });
 
-        // 2. Trigger Conversion
-        const response = await axios.post('/api/process/pdf-to-word', { key });
-
-        // 3. Download Result
-        const { downloadUrl } = response.data;
-        window.open(downloadUrl, '_blank');
+        const blob = await docx.Packer.toBlob(doc);
+        const url = URL.createObjectURL(blob);
+        
+        // Trigger Download
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = file.name.replace('.pdf', '.docx');
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
         window.dispatchEvent(new Event('usage-updated'));
+
     } catch (err) {
         console.error("PDF to Word error:", err);
-        setError("Failed to convert PDF to Word.");
+        setError("Failed to convert PDF to Word locally. Please try a simpler file.");
     } finally {
         setLoading(false);
     }

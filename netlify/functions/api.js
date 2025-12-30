@@ -8,6 +8,8 @@ import archiver from 'archiver';
 import { Stream } from 'stream';
 import fs from 'fs';
 import path from 'path';
+import { createCanvas } from 'canvas';
+import * as pdfjsLib from 'pdfjs-dist';
 
 const app = express();
 app.use(cors());
@@ -75,20 +77,19 @@ const parsePageRanges = (rangeString, maxPages) => {
             if (!isNaN(page)) {
                 if (page - 1 >= 0 && page - 1 < maxPages) pages.add(page - 1);
             }
-        }
-    });
-    return Array.from(pages).sort((a, b) => a - b);
-};
-
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-import { query } from './db.js';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_jwt_key_change_me';
-
-// MIDDLEWARE: Parse User from Token (Optional)
-// Populates req.user if valid token found
-const optionalAuth = (req, res, next) => {
+            }
+        });
+        return Array.from(pages).sort((a, b) => a - b);
+    };
+            
+    import bcrypt from 'bcryptjs';
+    import jwt from 'jsonwebtoken';
+    import { query } from './db.js';
+    
+    const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_jwt_key_change_me';
+    
+    // MIDDLEWARE: Parse User from Token (Optional)
+    const optionalAuth = (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
@@ -1068,7 +1069,7 @@ router.post('/process/compress', express.json(), async (req, res) => {
         await runProcessor('compress', { inputPath, outputPath });
         
         if (await fileExists(outputPath)) {
-            const compressedBuffer = await fs.readFile(outputPath);
+            const compressedBuffer = await fs.promises.readFile(outputPath);
             const resultKey = `results/${Date.now()}_${uuidv4()}_compressed.pdf`;
             await uploadBuffer(resultKey, compressedBuffer, 'application/pdf');
             await logUsage(req, 'Compress PDF');
@@ -1130,8 +1131,67 @@ router.post('/process/rotate', express.json(), async (req, res) => {
 
 // PDF TO JPG
 router.post('/process/pdf-to-jpg', express.json(), async (req, res) => {
-    // const { key } = req.body;
-    res.status(400).json({ error: "PDF to Image conversion requires enabling native binaries, currently disabled for stability." });
+    try {
+        const { key } = req.body;
+        if (!key) return res.status(400).json({ error: "File required." });
+
+        const zipPath = path.join('/tmp', `images_${uuidv4()}.zip`);
+        const buffer = await downloadToBuffer(key);
+        const uint8Array = new Uint8Array(buffer);
+
+        const loadingTask = pdfjsLib.getDocument({
+             data: uint8Array,
+             standardFontDataUrl: 'node_modules/pdfjs-dist/standard_fonts/',
+             disableFontFace: true
+        });
+        const doc = await loadingTask.promise;
+
+        const outputStream = fs.createWriteStream(zipPath);
+        const archive = archiver('zip', { zlib: { level: 9 } });
+        
+        const archivePromise = new Promise((resolve, reject) => {
+             outputStream.on('close', resolve);
+             archive.on('error', reject);
+             archive.pipe(outputStream);
+        });
+
+        for (let i = 1; i <= doc.numPages; i++) {
+             const page = await doc.getPage(i);
+             const viewport = page.getViewport({ scale: 2.0 });
+             const canvas = createCanvas(viewport.width, viewport.height);
+             const context = canvas.getContext('2d');
+             
+             await page.render({
+                 canvasContext: context,
+                 viewport: viewport,
+                 canvasFactory: { 
+                    create: (w, h) => createCanvas(w, h),
+                    reset: (c, w, h) => { c.width = w; c.height = h; },
+                    destroy: (c) => { c.width = 0; c.height = 0; }
+                 }
+             }).promise;
+             
+             const imgBuffer = canvas.toBuffer('image/jpeg', { quality: 0.9 });
+             archive.append(imgBuffer, { name: `page_${i}.jpg` });
+        }
+        
+        await archive.finalize();
+        await archivePromise;
+
+        const zipBuffer = await fs.promises.readFile(zipPath);
+        const resultKey = `results/${Date.now()}_${uuidv4()}_images.zip`;
+        await uploadBuffer(resultKey, zipBuffer, 'application/zip');
+        await logUsage(req, 'PDF to JPG');
+        
+        const downloadUrl = await getDownloadUrl(resultKey);
+        await fs.promises.unlink(zipPath).catch(() => {});
+        
+        res.json({ downloadUrl });
+
+    } catch (e) {
+        console.error("PDF to JPG Error:", e);
+        res.status(500).json({ error: "Failed to convert PDF to JPG." });
+    }
 });
 
 
