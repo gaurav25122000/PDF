@@ -77,11 +77,18 @@ func uploadFile(url string, filepath string) error {
 	}
 	defer f.Close()
 
+	// Get file size for Content-Length
+	fi, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	
 	req, err := http.NewRequest(http.MethodPut, url, f)
 	if err != nil {
 		return err
 	}
 	req.Header.Set("Content-Type", "application/pdf")
+	req.ContentLength = fi.Size() // This disables "Transfer-Encoding: chunked"
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
