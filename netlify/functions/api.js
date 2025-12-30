@@ -195,6 +195,487 @@ const fileExists = async (path) => {
     }
 };
 
+// Helper to get Ghostscript Path
+// REMOVED (Replaced by process_pdf.py)
+
+// --- AUTH ROUTES ---
+
+router.post('/auth/signup', async (req, res) => {
+    try {
+        const { email, password, name } = req.body;
+        if (!email || !password) return res.status(400).json({ error: "Email and password required" });
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        const result = await query(
+            'INSERT INTO users (email, password_hash, name) VALUES ($1, $2, $3) RETURNING id, email, name',
+            [email, hashedPassword, name || '']
+        );
+
+        const user = result.rows[0];
+        const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
+
+        res.json({ token, user: { id: user.id, email: user.email, name: user.name } });
+    } catch (e) {
+        if (e.code === '23505') { // Unique violation
+            return res.status(400).json({ error: "Email already registered" });
+        }
+        console.error("Signup error:", e);
+        if (e.code === '42703') {
+            return res.status(500).json({ error: "Database needs update: Missing 'name' column." });
+        }
+        res.status(500).json({ error: "Signup failed" });
+    }
+});
+
+router.post('/auth/login', async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        const result = await query('SELECT * FROM users WHERE email = $1', [email]);
+        const user = result.rows[0];
+
+        if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+            return res.status(401).json({ error: "Invalid credentials" });
+        }
+
+        const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
+        res.json({ token, user: { id: user.id, email: user.email } });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: "Login failed" });
+    }
+});
+
+router.get('/auth/me', optionalAuth, async (req, res) => {
+    if (!req.user) return res.status(401).json({ error: "Not logged in" });
+
+    const userRes = await query('SELECT id, email, name FROM users WHERE id = $1', [req.user.id]);
+    const userData = userRes.rows[0];
+
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const countRes = await query(
+        'SELECT COUNT(*) FROM usage_logs WHERE user_id = $1 AND created_at > $2',
+        [req.user.id, oneDayAgo]
+    );
+    const oldestRes = await query(
+        'SELECT created_at FROM usage_logs WHERE user_id = $1 AND created_at > $2 ORDER BY created_at ASC LIMIT 1',
+        [req.user.id, oneDayAgo]
+    );
+
+    let resetTime = null;
+    if (oldestRes.rows.length > 0) {
+        resetTime = new Date(new Date(oldestRes.rows[0].created_at).getTime() + 24 * 60 * 60 * 1000);
+    }
+
+    res.json({
+        user: userData,
+        usageToday: parseInt(countRes.rows[0].count),
+        limit: 300,
+        resetTime
+    });
+});
+
+router.get('/usage-status', optionalAuth, async (req, res) => {
+    try {
+        const userId = req.user ? req.user.id : null;
+        const ip = req.headers['client-ip'] || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+        let countResult, oldestResult;
+
+        if (userId) {
+            countResult = await query('SELECT COUNT(*) FROM usage_logs WHERE user_id = $1 AND created_at > $2', [userId, oneDayAgo]);
+            oldestResult = await query('SELECT created_at FROM usage_logs WHERE user_id = $1 AND created_at > $2 ORDER BY created_at ASC LIMIT 1', [userId, oneDayAgo]);
+        } else {
+            countResult = await query('SELECT COUNT(*) FROM usage_logs WHERE ip_address = $1 AND created_at > $2', [ip, oneDayAgo]);
+            oldestResult = await query('SELECT created_at FROM usage_logs WHERE ip_address = $1 AND created_at > $2 ORDER BY created_at ASC LIMIT 1', [ip, oneDayAgo]);
+        }
+
+        let resetTime = null;
+        if (oldestResult.rows.length > 0) {
+            resetTime = new Date(new Date(oldestResult.rows[0].created_at).getTime() + 24 * 60 * 60 * 1000);
+        }
+
+        res.json({
+            usage: parseInt(countResult.rows[0].count),
+            limit: 300,
+            resetTime
+        });
+
+    } catch (e) {
+        console.error("Usage Status Error:", e);
+        res.status(500).json({ error: "Failed to fetch status" });
+    }
+});
+
+
+// --- TOOL ROUTES (Wrapped with Auth & Rate Limit) ---
+
+router.use('/process', optionalAuth);
+router.use('/process', checkRateLimit);
+
+router.get('/', (req, res) => {
+    res.json({ message: "MarvelPDF Node.js Backend Running" });
+});
+
+router.get('/health', (req, res) => {
+    res.json({ status: "ok", environment: "nodejs" });
+});
+
+// MERGE PDF
+router.post('/process/merge', express.json(), async (req, res) => {
+    try {
+        const { keys } = req.body;
+        if (!keys || keys.length < 2) {
+            return res.status(400).json({ error: "At least 2 files are required." });
+        }
+
+        const mergedPdf = await PDFDocument.create();
+
+        for (const key of keys) {
+            const buffer = await downloadToBuffer(key);
+            const pdf = await PDFDocument.load(buffer);
+            const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
+            copiedPages.forEach((page) => mergedPdf.addPage(page));
+        }
+
+        const pdfBytes = await mergedPdf.save();
+
+        const resultKey = `results/${Date.now()}_${uuidv4()}_merged.pdf`;
+        await uploadBuffer(resultKey, Buffer.from(pdfBytes), 'application/pdf');
+
+        await logUsage(req, 'Merge PDF');
+
+        const downloadUrl = await getDownloadUrl(resultKey);
+        res.json({ downloadUrl });
+
+    } catch (error) {
+        console.error("Merge Error:", error);
+        res.status(500).json({ error: "Failed to merge PDFs." });
+    }
+});
+
+// SPLIT PDF
+router.post('/process/split', express.json(), async (req, res) => {
+    try {
+        const { key, range } = req.body;
+        if (!key || !range) {
+            return res.status(400).json({ error: "File and range are required." });
+        }
+
+        const buffer = await downloadToBuffer(key);
+        const srcDoc = await PDFDocument.load(buffer);
+        const pageIndices = parsePageRanges(range, srcDoc.getPageCount());
+
+        if (pageIndices.length === 0) {
+            return res.status(400).json({ error: "Invalid page range." });
+        }
+
+        const subPdf = await PDFDocument.create();
+        const copiedPages = await subPdf.copyPages(srcDoc, pageIndices);
+        copiedPages.forEach((page) => subPdf.addPage(page));
+        const subPdfBytes = await subPdf.save();
+
+        const resultKey = `results/${Date.now()}_${uuidv4()}_split.pdf`;
+        await uploadBuffer(resultKey, Buffer.from(subPdfBytes), 'application/pdf');
+
+        await logUsage(req, 'Split PDF');
+
+        const downloadUrl = await getDownloadUrl(resultKey);
+        res.json({ downloadUrl });
+
+    } catch (error) {
+        console.error("Split Error:", error);
+        res.status(500).json({ error: "Failed to split PDF." });
+    }
+});
+
+// UNLOCK PDF
+router.post('/process/unlock', express.json(), async (req, res) => {
+    try {
+        const { key, password } = req.body;
+        if (!key || !password) return res.status(400).json({ error: "File and password required." });
+
+        const buffer = await downloadToBuffer(key);
+        const pdfDoc = await PDFDocument.load(buffer, { password });
+        const pdfBytes = await pdfDoc.save();
+
+        const resultKey = `results/${Date.now()}_${uuidv4()}_unlocked.pdf`;
+        await uploadBuffer(resultKey, Buffer.from(pdfBytes), 'application/pdf');
+
+        await logUsage(req, 'Unlock PDF');
+
+        const downloadUrl = await getDownloadUrl(resultKey);
+        res.json({ downloadUrl });
+    } catch (e) {
+        console.error(e);
+        res.status(403).json({ error: "Failed to unlock. Wrong password?" });
+    }
+});
+
+// WATERMARK PDF
+router.post('/process/watermark', express.json(), async (req, res) => {
+    try {
+        const { key, text } = req.body;
+        if (!key) return res.status(400).json({ error: "File required." });
+        const watermarkText = text || "CONFIDENTIAL";
+
+        const buffer = await downloadToBuffer(key);
+        const pdfDoc = await PDFDocument.load(buffer);
+        const pages = pdfDoc.getPages();
+        const font = await pdfDoc.embedFont("Helvetica-Bold");
+
+        pages.forEach(page => {
+            const { width, height } = page.getSize();
+            const fontSize = 50;
+            const textWidth = font.widthOfTextAtSize(watermarkText, fontSize);
+
+            page.drawText(watermarkText, {
+                x: width / 2 - textWidth / 2,
+                y: height / 2,
+                size: fontSize,
+                font: font,
+                opacity: 0.3,
+                rotate: degrees(45),
+            });
+        });
+
+        const pdfBytes = await pdfDoc.save();
+
+        const resultKey = `results/${Date.now()}_${uuidv4()}_watermarked.pdf`;
+        await uploadBuffer(resultKey, Buffer.from(pdfBytes), 'application/pdf');
+
+        await logUsage(req, 'Watermark PDF');
+
+        const downloadUrl = await getDownloadUrl(resultKey);
+        res.json({ downloadUrl });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: "Failed." });
+    }
+});
+
+// PAGE NUMBERS
+router.post('/process/page-numbers', express.json(), async (req, res) => {
+    try {
+        const { key, position } = req.body;
+        if (!key) return res.status(400).json({ error: "File required." });
+        const pos = position || 'bottom';
+
+        const buffer = await downloadToBuffer(key);
+        const pdfDoc = await PDFDocument.load(buffer);
+        const pages = pdfDoc.getPages();
+        const font = await pdfDoc.embedFont("Helvetica");
+
+        pages.forEach((page, idx) => {
+            const { width, height } = page.getSize();
+            const text = `${idx + 1}`;
+            const fontSize = 12;
+            const textWidth = font.widthOfTextAtSize(text, fontSize);
+
+            let x = 0, y = 20;
+
+            switch (pos) {
+                case 'top': x = width / 2 - textWidth / 2; y = height - 20; break;
+                case 'bottom-left': x = 20; y = 20; break;
+                case 'bottom-right': x = width - textWidth - 20; y = 20; break;
+                default: x = width / 2 - textWidth / 2; y = 20; // Bottom Center
+            }
+
+            page.drawText(text, { x, y, size: fontSize, font });
+        });
+
+        const pdfBytes = await pdfDoc.save();
+
+        const resultKey = `results/${Date.now()}_${uuidv4()}_numbered.pdf`;
+        await uploadBuffer(resultKey, Buffer.from(pdfBytes), 'application/pdf');
+
+        await logUsage(req, 'Page Numbers');
+
+        const downloadUrl = await getDownloadUrl(resultKey);
+        res.json({ downloadUrl });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: "Failed." });
+    }
+});
+
+// JPG TO PDF
+router.post('/process/jpg-to-pdf', express.json(), async (req, res) => {
+    try {
+        const { keys } = req.body;
+        if (!keys || keys.length === 0) return res.status(400).json({ error: "Files required." });
+
+        const pdfDoc = await PDFDocument.create();
+
+        for (const key of keys) {
+            const buffer = await downloadToBuffer(key);
+            let image;
+            try {
+                image = await pdfDoc.embedJpg(buffer);
+            } catch (e) {
+                try {
+                    image = await pdfDoc.embedPng(buffer);
+                } catch (e2) {
+                    console.error("Not a JPG or PNG");
+                    continue;
+                }
+            }
+
+            const page = pdfDoc.addPage([image.width, image.height]);
+            page.drawImage(image, {
+                x: 0,
+                y: 0,
+                width: image.width,
+                height: image.height,
+            });
+        }
+
+        const pdfBytes = await pdfDoc.save();
+
+        const resultKey = `results/${Date.now()}_${uuidv4()}_converted.pdf`;
+        await uploadBuffer(resultKey, Buffer.from(pdfBytes), 'application/pdf');
+
+        await logUsage(req, 'Jpg to PDF');
+
+        const downloadUrl = await getDownloadUrl(resultKey);
+        res.json({ downloadUrl });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: "Failed. Ensure images are JPG/PNG." });
+    }
+});
+
+// EDIT / SIGN PDF
+router.post('/process/edit', express.json(), async (req, res) => {
+    try {
+        const { key, operations } = req.body;
+        if (!key || !operations) return res.status(400).json({ error: "File and ops required." });
+
+        const ops = (typeof operations === 'string') ? JSON.parse(operations) : operations;
+
+        const buffer = await downloadToBuffer(key);
+        const pdfDoc = await PDFDocument.load(buffer);
+        const pages = pdfDoc.getPages();
+
+        for (const op of ops) {
+            if (op.page >= pages.length) continue;
+            const page = pages[op.page];
+
+            if (op.type === 'image') {
+                let imageBytes;
+                if (op.key) {
+                    imageBytes = await downloadToBuffer(op.key);
+                } else if (op.data) {
+                    const base64Data = op.data.split(',')[1];
+                    imageBytes = Buffer.from(base64Data, 'base64');
+                } else {
+                    continue;
+                }
+
+                let image;
+                try {
+                    image = await pdfDoc.embedPng(imageBytes);
+                } catch (e) {
+                    try {
+                        image = await pdfDoc.embedJpg(imageBytes);
+                    } catch (e2) {
+                        continue;
+                    }
+                }
+
+                const pageWidth = page.getWidth();
+                const pageHeight = page.getHeight();
+
+                let drawOpts = {
+                    x: 0,
+                    y: 0,
+                    width: op.width || image.width,
+                    height: op.height || image.height,
+                };
+
+                if (op.key) {
+                    drawOpts = {
+                        x: 0,
+                        y: 0,
+                        width: pageWidth,
+                        height: pageHeight,
+                    };
+                }
+
+                page.drawImage(image, drawOpts);
+            } else if (op.type === 'text') {
+                const font = await pdfDoc.embedFont("Helvetica");
+                page.drawText(op.text, {
+                    x: op.x || 0,
+                    y: op.y || 0,
+                    size: op.fontSize || 12,
+                    color: op.color ? undefined : undefined,
+                    font: font
+                });
+            }
+        }
+
+        const pdfBytes = await pdfDoc.save();
+        const resultKey = `results/${Date.now()}_${uuidv4()}_edited.pdf`;
+        await uploadBuffer(resultKey, Buffer.from(pdfBytes), 'application/pdf');
+        await logUsage(req, 'Edit PDF');
+        const downloadUrl = await getDownloadUrl(resultKey);
+        res.json({ downloadUrl });
+
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: "Failed to edit operations." });
+    }
+});
+
+// WORD TO PDF (Using Mammoth for simple text/DOCX to PDF)
+router.post('/process/word-to-pdf', express.json(), async (req, res) => {
+    try {
+        const { key } = req.body;
+        if (!key) return res.status(400).json({ error: "File required." });
+
+        const buffer = await downloadToBuffer(key);
+
+        const { extractRawText } = await import('mammoth');
+        const result = await extractRawText({ buffer: buffer });
+        const text = result.value;
+
+        const pdfDoc = await PDFDocument.create();
+        let page = pdfDoc.addPage();
+        const { width, height } = page.getSize();
+        const font = await pdfDoc.embedFont("Helvetica");
+        const fontSize = 11;
+
+        const lines = text.split('\n');
+        let y = height - 50;
+        const margin = 50;
+
+        lines.forEach(line => {
+            if (y < 50) { page = pdfDoc.addPage(); y = height - 50; }
+
+            const maxChars = 80;
+            for (let i = 0; i < line.length; i += maxChars) {
+                if (y < 50) { page = pdfDoc.addPage(); y = height - 50; }
+                const segment = line.substring(i, i + maxChars);
+                const safeSegment = segment.replace(/[^\x00-\x7F]/g, "?");
+                page.drawText(safeSegment, { x: margin, y, size: fontSize, font });
+                y -= 15;
+            }
+        });
+
+        const pdfBytes = await pdfDoc.save();
+        const resultKey = `results/${Date.now()}_${uuidv4()}_word.pdf`;
+        await uploadBuffer(resultKey, Buffer.from(pdfBytes), 'application/pdf');
+        await logUsage(req, 'Word to PDF');
+        const downloadUrl = await getDownloadUrl(resultKey);
+        res.json({ downloadUrl });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: "Failed to convert Word to PDF." });
+    }
+});
+
 // Helper to run Python Process
 const runPythonProcess = async (command, inputPath, outputPath, password) => {
     // Ensure python3 and pymupdf are available.
