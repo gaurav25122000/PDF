@@ -7,23 +7,23 @@ const FAQItem = ({ question, answer }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div className="border border-gray-100 rounded-2xl bg-white overflow-hidden transition-all duration-300 hover:shadow-sm">
+    <div className="border border-white/10 rounded-2xl bg-white/5 overflow-hidden transition-all duration-300 hover:bg-white/10">
       <button 
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between p-5 md:p-6 text-left focus:outline-none group bg-white"
+        className="w-full flex items-center justify-between p-5 md:p-6 text-left focus:outline-none group bg-transparent"
         aria-expanded={isOpen}
       >
-        <span className={`font-bold text-lg md:text-xl pr-4 leading-snug ${isOpen ? 'text-marvel-red' : 'text-gray-900'} group-hover:text-marvel-red transition-colors`}>
+        <span className={`font-bold text-lg md:text-xl pr-4 leading-snug ${isOpen ? 'text-white' : 'text-gray-300'} group-hover:text-white transition-colors`}>
             {question}
         </span>
-        <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-colors ${isOpen ? 'bg-marvel-red text-white' : 'bg-gray-100 text-gray-500 group-hover:bg-marvel-red/10 group-hover:text-marvel-red'}`}>
+        <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-colors ${isOpen ? 'bg-marvel-red text-white' : 'bg-white/10 text-gray-500 group-hover:bg-marvel-red/20 group-hover:text-marvel-red'}`}>
             {isOpen ? <Minus size={18} /> : <Plus size={18} />}
         </div>
       </button>
       <div 
         className={`overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}
       >
-        <div className="p-5 md:p-6 pt-0 border-t border-transparent text-gray-600 leading-relaxed text-base md:text-lg">
+        <div className="p-5 md:p-6 pt-0 border-t border-white/5 text-gray-400 leading-relaxed text-base md:text-lg">
             {answer}
         </div>
       </div>
@@ -33,8 +33,8 @@ const FAQItem = ({ question, answer }) => {
 
 const FAQCategory = ({ title, icon: Icon, children }) => (
     <div className="mb-10 md:mb-16">
-        <h3 className="text-xl md:text-2xl font-heading font-bold text-marvel-black mb-6 flex items-center gap-3">
-            <div className="p-2 bg-marvel-red/5 rounded-lg text-marvel-red">
+        <h3 className="text-xl md:text-2xl font-heading font-bold text-white mb-6 flex items-center gap-3">
+            <div className="p-2 bg-marvel-red/10 rounded-lg text-marvel-red border border-marvel-red/20">
                 <Icon size={24} />
             </div>
             {title}
@@ -51,34 +51,33 @@ const FAQ = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-800 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen py-24 px-4 sm:px-6 lg:px-8 relative z-10">
       <SEO 
         title="Frequently Asked Questions - MarvelPDF Support" 
         description="Find answers to common questions about MarvelPDF. Learn about our free limits, file safety, and supported formats."
         keywords="faq, help, support, pdf questions, how to merge pdf, pdf converter help"
       />
       
-      {/* Decorative Background */}
-      <div className="fixed top-0 inset-x-0 h-[400px] bg-gradient-to-b from-white to-gray-50 pointer-events-none -z-10" />
-      <div className="fixed top-1/4 left-10 w-64 h-64 bg-blue-100/50 rounded-full blur-[80px] -z-10 animate-pulse" />
-      <div className="fixed bottom-1/4 right-10 w-80 h-80 bg-red-100/40 rounded-full blur-[100px] -z-10" />
+      {/* Background Elements */}
+      <div className="fixed top-0 right-0 w-[500px] h-[500px] bg-red-600/10 blur-[120px] rounded-full pointer-events-none -translate-y-1/2 translate-x-1/2 -z-10" />
+      <div className="fixed bottom-0 left-0 w-[500px] h-[500px] bg-blue-600/10 blur-[120px] rounded-full pointer-events-none translate-y-1/2 -translate-x-1/2 -z-10" />
 
       <div className="max-w-4xl mx-auto">
         {/* Navigation */}
-        <Link to="/" className="inline-flex items-center gap-2 text-gray-500 hover:text-marvel-black transition-colors font-bold mb-8 md:mb-12 group">
-            <div className="p-2 bg-white rounded-lg shadow-sm border border-gray-100 group-hover:shadow-md transition-all">
-                <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
+        <Link to="/" className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors font-medium mb-8 md:mb-12 group">
+            <div className="p-2 bg-white/5 rounded-lg border border-white/10 group-hover:bg-white/10 transition-all">
+                <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
             </div>
             <span className="text-sm md:text-base">Back to Tools</span>
         </Link>
         
         {/* Header */}
         <div className="text-center mb-16 md:mb-20">
-            <h1 className="text-4xl md:text-6xl font-heading text-marvel-black mb-6">
+            <h1 className="text-4xl md:text-6xl font-heading text-white mb-6">
                 How can we help?
             </h1>
-            <p className="text-xl text-gray-500 max-w-2xl mx-auto">
-                Everything you need to know about MarvelPDF. Can't find the answer? <a href="mailto:support@marvelpdf.com" className="text-marvel-red underline hover:text-marvel-black transition-colors">Contact us</a>.
+            <p className="text-xl text-gray-400 max-w-2xl mx-auto">
+                Everything you need to know about MarvelPDF. Can't find the answer? <a href="mailto:support@marvelpdf.com" className="text-marvel-red hover:text-white transition-colors underline">Contact us</a>.
             </p>
         </div>
         
@@ -124,7 +123,7 @@ const FAQ = () => {
             />
         </FAQCategory>
 
-        <div className="bg-marvel-black text-white rounded-3xl p-8 md:p-12 text-center relative overflow-hidden">
+        <div className="bg-[#111] text-white rounded-3xl p-8 md:p-12 text-center relative overflow-hidden border border-white/10 shadow-2xl">
             <div className="relative z-10">
                 <h3 className="text-2xl md:text-3xl font-heading mb-4">Still need help?</h3>
                 <p className="text-gray-400 mb-8 max-w-xl mx-auto">
@@ -132,7 +131,7 @@ const FAQ = () => {
                 </p>
                 <a 
                     href="mailto:support@marvelpdf.com" 
-                    className="inline-flex items-center px-8 py-4 bg-marvel-red text-white text-lg font-bold rounded-xl hover:bg-red-600 transition-all shadow-lg hover:shadow-red-900/20 transform hover:-translate-y-1"
+                    className="inline-flex items-center px-8 py-4 bg-marvel-red text-white text-lg font-bold rounded-xl hover:bg-red-600 transition-all shadow-lg shadow-red-900/20 transform hover:-translate-y-1 border border-transparent"
                 >
                     Email Support
                 </a>

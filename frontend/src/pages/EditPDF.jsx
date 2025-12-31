@@ -1025,26 +1025,30 @@ const EditPDF = () => {
 
   if (!file) {
       return (
-        <div className="min-h-screen bg-gray-50 flex flex-col">
-            {/* Simple Header for file select */}
-             <div className="bg-white shadow-sm p-4 flex justify-between items-center px-8">
-                <div className="font-bold text-xl flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
-                    <ChevronLeft /> Back to Home
-                </div>
-             </div>
-             <div className="flex-1 flex flex-col items-center justify-center p-8">
-                 <div className="max-w-2xl w-full text-center">
-                    <h1 className="text-4xl font-bold mb-4 text-gray-900">Edit PDF</h1>
-                    <p className="text-gray-600 mb-8 text-lg">Upload your PDF to start editing. Add text, shapes, and images.</p>
-                    <FileUploader onFilesSelected={handleFiles} multiple={false} accept=".pdf" />
+        <div className="min-h-screen bg-[#0a0a0a] flex flex-col relative overflow-hidden">
+             <div className="absolute inset-0 bg-red-600/5 blur-[100px] pointer-events-none" />
+             
+             {/* Simple Header for file select */}
+              <div className="bg-[#111] border-b border-white/10 p-4 flex justify-between items-center px-8 relative z-10">
+                 <div className="font-bold text-xl flex items-center gap-2 cursor-pointer text-white hover:text-red-500 transition-colors" onClick={() => navigate('/')}>
+                     <ChevronLeft /> Back to Home
                  </div>
-             </div>
+              </div>
+              <div className="flex-1 flex flex-col items-center justify-center p-8 relative z-10">
+                  <div className="max-w-2xl w-full text-center">
+                     <h1 className="text-5xl font-heading font-bold mb-6 text-white tracking-tight">
+                        Edit <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-orange-500">PDF</span>
+                     </h1>
+                     <p className="text-gray-400 mb-10 text-xl">Upload your PDF to start editing. Add text, shapes, and images with ease.</p>
+                     <FileUploader onFilesSelected={handleFiles} multiple={false} accept=".pdf" />
+                  </div>
+              </div>
         </div>
       );
   }
 
   return (
-    <div className="flex h-screen bg-gray-100 overflow-hidden flex-col">
+    <div className="flex h-screen bg-[#0a0a0a] overflow-hidden flex-col">
        <SEO 
         title="Edit PDF - Free Online PDF Editor" 
         description="Edit PDF files online for free. Add text, images, shapes, highlights, and annotations to your PDF documents. No installation required."
@@ -1052,99 +1056,99 @@ const EditPDF = () => {
        />
 
        {/* Top Toolbar */}
-       <div className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 z-20 shadow-sm">
+       <div className="h-16 bg-[#111] border-b border-white/10 flex items-center justify-between px-4 z-20 shadow-md">
            <div className="flex items-center gap-4">
-               <button onClick={() => navigate('/')} className="p-2 hover:bg-gray-100 rounded-full text-gray-600">
+               <button onClick={() => navigate('/')} className="p-2 hover:bg-white/10 rounded-full text-gray-400 hover:text-white transition-colors">
                    <ChevronLeft className="w-6 h-6" />
                </button>
-               <h1 className="font-bold text-lg text-gray-800 hidden sm:block">Edit PDF</h1>
-               <div className="h-6 w-px bg-gray-300 mx-2 hidden sm:block"></div>
-               <div className="flex items-center gap-1 bg-gray-50 p-1 rounded-lg border border-gray-200">
+               <h1 className="font-bold text-lg text-white hidden sm:block">Edit PDF</h1>
+               <div className="h-6 w-px bg-white/10 mx-2 hidden sm:block"></div>
+               <div className="flex items-center gap-1 bg-black/20 p-1 rounded-lg border border-white/5">
                     <button 
                         onClick={() => setTool('select')} 
-                        className={`p-2 rounded ${tool === 'select' ? 'bg-white shadow text-purple-600' : 'text-gray-600 hover:bg-gray-200'}`}
+                        className={`p-2 rounded transition-all ${tool === 'select' ? 'bg-red-600 text-white shadow-lg shadow-red-500/20' : 'text-gray-400 hover:bg-white/10 hover:text-white'}`}
                         title="Select"
                     >
                         <MousePointer className="w-5 h-5" />
                     </button>
                     <button 
                         onClick={addText}
-                         className={`p-2 rounded ${tool === 'text' ? 'bg-white shadow text-purple-600' : 'text-gray-600 hover:bg-gray-200'}`}
+                         className={`p-2 rounded transition-all ${tool === 'text' ? 'bg-red-600 text-white shadow-lg shadow-red-500/20' : 'text-gray-400 hover:bg-white/10 hover:text-white'}`}
                         title="Add Text"
                     >
                         <Type className="w-5 h-5" />
                     </button>
                     <button
                         onClick={() => setShowSignModal(true)}
-                         className="p-2 rounded text-gray-600 hover:bg-gray-200"
+                         className="p-2 rounded text-gray-400 hover:bg-white/10 hover:text-white"
                         title="Sign PDF"
                     >
                         <PenTool className="w-5 h-5" />
                     </button>
                     <button
                          onClick={() => setTool('text_edit')}
-                         className={`p-2 rounded ${tool === 'text_edit' ? 'bg-white shadow text-purple-600' : 'text-gray-600 hover:bg-gray-200'}`}
+                         className={`p-2 rounded transition-all ${tool === 'text_edit' ? 'bg-red-600 text-white shadow-lg shadow-red-500/20' : 'text-gray-400 hover:bg-white/10 hover:text-white'}`}
                          title="Edit Text"
                     >
                         <Type className="w-5 h-5 underline" />
                     </button>
                     <button
                          onClick={() => setTool('highlight')}
-                         className={`p-2 rounded ${tool === 'highlight' ? 'bg-white shadow text-purple-600' : 'text-gray-600 hover:bg-gray-200'}`}
+                         className={`p-2 rounded transition-all ${tool === 'highlight' ? 'bg-red-600 text-white shadow-lg shadow-red-500/20' : 'text-gray-400 hover:bg-white/10 hover:text-white'}`}
                          title="Highlight"
                     >
                         <Highlighter className="w-5 h-5" />
                     </button>
                     <button
                          onClick={() => setTool('strikeout')}
-                         className={`p-2 rounded ${tool === 'strikeout' ? 'bg-white shadow text-purple-600' : 'text-gray-600 hover:bg-gray-200'}`}
+                         className={`p-2 rounded transition-all ${tool === 'strikeout' ? 'bg-red-600 text-white shadow-lg shadow-red-500/20' : 'text-gray-400 hover:bg-white/10 hover:text-white'}`}
                          title="Strikeout"
                     >
                         <Strikethrough className="w-5 h-5" />
                     </button>
                     <button
                          onClick={() => setTool('link')}
-                         className={`p-2 rounded ${tool === 'link' ? 'bg-white shadow text-purple-600' : 'text-gray-600 hover:bg-gray-200'}`}
+                         className={`p-2 rounded transition-all ${tool === 'link' ? 'bg-red-600 text-white shadow-lg shadow-red-500/20' : 'text-gray-400 hover:bg-white/10 hover:text-white'}`}
                          title="Add Link"
                     >
                         <LinkIcon className="w-5 h-5" />
                     </button>
                     <button
                          onClick={() => setTool('form_text')}
-                         className={`p-2 rounded ${tool === 'form_text' ? 'bg-white shadow text-purple-600' : 'text-gray-600 hover:bg-gray-200'}`}
+                         className={`p-2 rounded transition-all ${tool === 'form_text' ? 'bg-red-600 text-white shadow-lg shadow-red-500/20' : 'text-gray-400 hover:bg-white/10 hover:text-white'}`}
                          title="Form Text Field"
                     >
                         <FormInput className="w-5 h-5" />
                     </button>
                     <button
                          onClick={() => setTool('form_checkbox')}
-                         className={`p-2 rounded ${tool === 'form_checkbox' ? 'bg-white shadow text-purple-600' : 'text-gray-600 hover:bg-gray-200'}`}
+                         className={`p-2 rounded transition-all ${tool === 'form_checkbox' ? 'bg-red-600 text-white shadow-lg shadow-red-500/20' : 'text-gray-400 hover:bg-white/10 hover:text-white'}`}
                          title="Form Checkbox"
                     >
                         <CheckSquare className="w-5 h-5" />
                     </button>
                     <button 
                         onClick={() => setTool('draw')}
-                        className={`p-2 rounded ${tool === 'draw' ? 'bg-white shadow text-purple-600' : 'text-gray-600 hover:bg-gray-200'}`}
+                        className={`p-2 rounded transition-all ${tool === 'draw' ? 'bg-red-600 text-white shadow-lg shadow-red-500/20' : 'text-gray-400 hover:bg-white/10 hover:text-white'}`}
                         title="Free Draw"
                     >
                         <Edit3 className="w-5 h-5" />
                     </button>
                     <button 
                          onClick={() => startDrawShape('rect')}
-                         className="p-2 rounded text-gray-600 hover:bg-gray-200"
+                         className="p-2 rounded text-gray-400 hover:bg-white/10 hover:text-white"
                          title="Rectangle"
                     >
                         <Square className="w-5 h-5" />
                     </button>
                      <button 
                          onClick={() => startDrawShape('circle')}
-                         className="p-2 rounded text-gray-600 hover:bg-gray-200"
+                         className="p-2 rounded text-gray-400 hover:bg-white/10 hover:text-white"
                          title="Circle"
                     >
                         <Circle className="w-5 h-5" />
                     </button>
-                     <label className="p-2 rounded text-gray-600 hover:bg-gray-200 cursor-pointer" title="Add Image">
+                     <label className="p-2 rounded text-gray-400 hover:bg-white/10 hover:text-white cursor-pointer" title="Add Image">
                          <ImageIcon className="w-5 h-5" />
                          <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
                      </label>
@@ -1153,7 +1157,7 @@ const EditPDF = () => {
                {/* Properties */}
                 
                 {/* Properties Panel */}
-                 <div className="flex items-center gap-4 ml-4 px-4 border-l border-gray-200">
+                 <div className="flex items-center gap-4 ml-4 px-4 border-l border-white/10">
                     {/* Common Properties (Color/Stroke) */}
                     <div className="flex items-center gap-2">
                        <label className="text-xs text-gray-500 font-medium">Color:</label>
@@ -1171,14 +1175,14 @@ const EditPDF = () => {
                                   }
                               }
                           }}
-                          className="w-8 h-8 rounded cursor-pointer border-0 p-0 overflow-hidden shadow-sm"
+                          className="w-8 h-8 rounded cursor-pointer border-0 p-0 overflow-hidden shadow-sm bg-transparent"
                           title="Color"
                        />
                     </div>
 
                     {selectedObject && (selectedObject.type === 'i-text' || selectedObject.data?.type === 'edited_text') && (
                         <>
-                            <div className="h-8 w-px bg-gray-300"></div>
+                            <div className="h-8 w-px bg-white/10"></div>
                             
                             {/* Font Family */}
                             <select 
@@ -1190,7 +1194,7 @@ const EditPDF = () => {
                                         forceUpdate(n => n + 1);
                                     }
                                 }}
-                                className="border rounded p-1 text-sm w-32"
+                                className="bg-[#222] border border-white/10 rounded p-1 text-sm w-32 text-gray-300 focus:border-red-500 outline-none"
                             >
                                 <option value="Helvetica">Helvetica</option>
                                 <option value="Times New Roman">Times New Roman</option>
@@ -1200,7 +1204,7 @@ const EditPDF = () => {
                             </select>
 
                             {/* Font Size */}
-                            <div className="flex items-center gap-1 bg-gray-50 p-1 rounded border border-gray-200">
+                            <div className="flex items-center gap-1 bg-black/20 p-1 rounded border border-white/10">
                                 <span className="text-xs text-gray-500 font-medium px-1">Size:</span>
                                 <input 
                                     type="number" 
@@ -1214,7 +1218,7 @@ const EditPDF = () => {
                                             forceUpdate(n => n + 1);
                                         }
                                     }}
-                                    className="w-12 p-1 text-sm border-0 bg-transparent"
+                                    className="w-12 p-1 text-sm border-0 bg-transparent text-gray-300 focus:outline-none"
                                 />
                             </div>
 
@@ -1229,7 +1233,7 @@ const EditPDF = () => {
                                         forceUpdate(n => n + 1);
                                     }
                                 }}
-                                className="p-1 hover:bg-gray-200 rounded text-xs font-bold w-6 text-center text-gray-600 border border-gray-300"
+                                className="p-1 hover:bg-white/10 rounded text-xs font-bold w-6 text-center text-gray-400 border border-white/10"
                                 title="Align Text"
                              >
                                 {(selectedObject.textAlign || 'left').substring(0,1).toUpperCase()}
@@ -1243,13 +1247,12 @@ const EditPDF = () => {
                                     value={selectedObject.backgroundColor || '#ffffff'} 
                                     onChange={(e) => {
                                         if (fabricCanvasRef.current) {
-                                            // Handling transparent?
                                             selectedObject.set('backgroundColor', e.target.value);
                                             fabricCanvasRef.current.requestRenderAll();
                                             forceUpdate(n => n + 1);
                                         }
                                     }}
-                                    className="w-6 h-6 rounded cursor-pointer border shadow-sm"
+                                    className="w-6 h-6 rounded cursor-pointer border border-white/10 shadow-sm"
                                     title="Background Color"
                                 />
                                 <button 
@@ -1260,7 +1263,7 @@ const EditPDF = () => {
                                             forceUpdate(n => n + 1);
                                         }
                                     }}
-                                    className="text-[10px] text-red-500 hover:underline"
+                                    className="text-[10px] text-red-500 hover:text-red-400 hover:underline"
                                 >
                                     Clear
                                 </button>
@@ -1269,18 +1272,18 @@ const EditPDF = () => {
                     )}
 
                     {!selectedObject || (selectedObject.type !== 'i-text' && selectedObject.type !== 'text') && (
-                        <div className="flex items-center gap-2 bg-gray-50 p-1 rounded border border-gray-200">
+                        <div className="flex items-center gap-2 bg-black/20 p-1 rounded border border-white/10">
                             <span className="text-xs text-gray-500 font-medium px-1">Stroke:</span>
                             <input 
                                 type="number" 
                                 min="1" max="20" 
                                 value={strokeWidth} 
                                 onChange={(e) => setStrokeWidth(parseInt(e.target.value))}
-                                className="w-12 p-1 text-sm border rounded"
+                                className="w-12 p-1 text-sm border-0 bg-transparent text-gray-300 focus:outline-none"
                             />
                         </div>
                     )}
-                   <button onClick={deleteSelected} className="p-2 text-red-500 hover:bg-red-50 rounded" title="Delete Selected">
+                   <button onClick={deleteSelected} className="p-2 text-red-500 hover:bg-red-500/10 rounded" title="Delete Selected">
                        <Trash2 className="w-5 h-5" />
                    </button>
                 </div>
@@ -1290,7 +1293,7 @@ const EditPDF = () => {
                <button 
                  onClick={savePdf} 
                  disabled={processing}
-                 className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg font-bold shadow-md disabled:opacity-50 disabled:cursor-wait"
+                 className="flex items-center gap-2 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white px-6 py-2 rounded-lg font-bold shadow-lg shadow-red-600/20 disabled:opacity-50 disabled:cursor-wait transition-all"
                >
                    {processing ? <Loader2 className="animate-spin w-4 h-4" /> : <Download className="w-4 h-4" />}
                    Download
@@ -1299,28 +1302,28 @@ const EditPDF = () => {
        </div>
 
        {/* Main Content */}
-       <div className="flex-1 flex overflow-hidden">
+       <div className="flex-1 flex overflow-hidden relative">
            
            {/* Thumbnails Sidebar */}
-           <div className="w-64 bg-white border-r border-gray-200 overflow-y-auto hidden md:flex flex-col p-4 gap-4">
+           <div className="w-64 bg-[#0a0a0a] border-r border-white/10 overflow-y-auto hidden md:flex flex-col p-4 gap-4 z-10">
                <h3 className="font-bold text-gray-500 text-xs uppercase tracking-wider">Pages ({numPages})</h3>
                <div className="flex flex-col gap-3">
                    {Array.from({ length: numPages }, (_, i) => i + 1).map(page => (
                        <div 
                          key={page}
                          onClick={() => changePage(page)}
-                         className={`relative rounded-lg overflow-hidden border-2 cursor-pointer transition hover:shadow-md ${
-                             currentPage === page ? 'border-purple-600 ring-2 ring-purple-100' : 'border-gray-200'
+                         className={`relative rounded-lg overflow-hidden border-2 cursor-pointer transition-all hover:shadow-lg hover:shadow-red-500/10 ${
+                             currentPage === page ? 'border-red-600 ring-2 ring-red-900/50' : 'border-white/5 opacity-70 hover:opacity-100'
                          }`}
                        >
                            {thumbnails[page] ? (
                                <img src={thumbnails[page]} className="w-full h-auto" />
                            ) : (
-                               <div className="aspect-[1/1.4] bg-gray-100 flex items-center justify-center text-gray-400">
+                               <div className="aspect-[1/1.4] bg-[#1a1a1a] flex items-center justify-center text-gray-600">
                                    <Loader2 className="w-6 h-6 animate-spin" />
                                </div>
                            )}
-                           <div className="absolute bottom-1 right-1 bg-black/50 text-white text-[10px] px-1.5 rounded">
+                           <div className="absolute bottom-1 right-1 bg-black/80 text-white text-[10px] px-1.5 rounded border border-white/10">
                                {page}
                            </div>
                        </div>
@@ -1329,22 +1332,26 @@ const EditPDF = () => {
            </div>
 
            {/* Canvas Area */}
-           <div className="flex-1 bg-gray-100 overflow-auto relative flex justify-center p-8">
-               {/* Removed transform: scale() to fix coordinate mapping issues. Size is controlled by canvas style. */}
-               <div className="relative shadow-2xl origin-top" >
-                    <div ref={canvasWrapperRef} className="bg-white">
+           <div className="flex-1 bg-[#151515] overflow-auto relative flex justify-center p-8">
+               {/* Background Pattern */}
+               <div className="absolute inset-0 opacity-20 pointer-events-none" 
+                    style={{ backgroundImage: 'radial-gradient(#333 1px, transparent 1px)', backgroundSize: '20px 20px' }}>
+               </div>
+
+               <div className="relative shadow-2xl origin-top z-10" >
+                    <div ref={canvasWrapperRef} className="bg-[#0f0f0f]">
                         <canvas ref={canvasRef} />
                     </div>
                </div>
            </div>
            
            {/* Zoom Controls Overlay */}
-           <div className="absolute bottom-8 right-8 flex flex-col gap-2 bg-white p-2 rounded-lg shadow-lg border border-gray-200 z-30">
-               <button onClick={() => setScale(s => Math.min(s + 0.1, 3))} className="p-2 hover:bg-gray-100 rounded text-gray-700">
+           <div className="absolute bottom-8 right-8 flex flex-col gap-2 bg-[#111] p-2 rounded-lg shadow-xl border border-white/10 z-30 backdrop-blur-md">
+               <button onClick={() => setScale(s => Math.min(s + 0.1, 3))} className="p-2 hover:bg-white/10 rounded text-gray-200">
                    <ZoomIn className="w-5 h-5" />
                </button>
-                <div className="text-center text-xs font-medium text-gray-500 py-1">{Math.round(scale * 100)}%</div>
-               <button onClick={() => setScale(s => Math.max(s - 0.1, 0.5))} className="p-2 hover:bg-gray-100 rounded text-gray-700">
+                <div className="text-center text-xs font-medium text-gray-500 py-1 border-y border-white/5">{Math.round(scale * 100)}%</div>
+               <button onClick={() => setScale(s => Math.max(s - 0.1, 0.5))} className="p-2 hover:bg-white/10 rounded text-gray-200">
                    <ZoomOut className="w-5 h-5" />
                </button>
            </div>

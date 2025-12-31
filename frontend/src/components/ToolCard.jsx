@@ -3,37 +3,42 @@ import { ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const ToolCard = ({ title, description, icon: Icon, to, color = "red" }) => {
-  const colorClasses = {
-    red: 'bg-red-50 text-marvel-red ring-marvel-red',
-    blue: 'bg-blue-50 text-blue-600 ring-blue-600',
-    green: 'bg-green-50 text-green-600 ring-green-600',
-    yellow: 'bg-yellow-50 text-yellow-600 ring-yellow-600',
-    purple: 'bg-purple-50 text-purple-600 ring-purple-600',
+  const colorConfigs = {
+    red:    { accent: 'text-red-500',    bg: 'bg-red-500/10',    border: 'group-hover:border-red-500/50',    glow: 'group-hover:shadow-red-500/20' },
+    blue:   { accent: 'text-blue-500',   bg: 'bg-blue-500/10',   border: 'group-hover:border-blue-500/50',   glow: 'group-hover:shadow-blue-500/20' },
+    green:  { accent: 'text-green-500',  bg: 'bg-green-500/10',  border: 'group-hover:border-green-500/50',  glow: 'group-hover:shadow-green-500/20' },
+    yellow: { accent: 'text-yellow-500', bg: 'bg-yellow-500/10', border: 'group-hover:border-yellow-500/50', glow: 'group-hover:shadow-yellow-500/20' },
+    purple: { accent: 'text-purple-500', bg: 'bg-purple-500/10', border: 'group-hover:border-purple-500/50', glow: 'group-hover:shadow-purple-500/20' },
   };
 
-  const selectedColorClass = colorClasses[color] || colorClasses.red;
+  const config = colorConfigs[color] || colorConfigs.red;
 
   return (
-    <Link 
-      to={to} 
-      className="block w-full h-full" // Simplified Link className, styling moved to motion.div
-    >
+    <Link to={to} className="block h-full group relative">
+       {/* Glow Effect behind card */}
+      <div className={`absolute -inset-0.5 rounded-2xl bg-gradient-to-r from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 blur transition duration-500 ${config.accent.replace('text-', 'via-')}`} />
+      
       <motion.div
-        whileHover={{ scale: 1.05, translateY: -5 }}
-        whileTap={{ scale: 0.95 }}
-        className="bg-white p-6 rounded-xl shadow-md hover:shadow-2xl transition-all duration-300 border border-gray-100 hover:border-marvel-red h-full flex flex-col items-start relative group overflow-hidden"
+        whileHover={{ translateY: -4 }}
+        className={`relative h-full p-6 rounded-2xl bg-[#111] border border-white/5 ${config.border} transition-all duration-300 flex flex-col items-start overflow-hidden group-hover:shadow-2xl ${config.glow}`}
       >
-        {/* New absolute div for background effect */}
-        <div className={`absolute top-0 right-0 w-24 h-24 bg-${color} opacity-5 rounded-bl-full -mr-10 -mt-10 transition-transform group-hover:scale-150 duration-500`}></div>
-        
-        {/* Modified icon container div */}
-        <div className={`p-3 rounded-lg ${selectedColorClass.replace('group-hover:bg-red-500 group-hover:text-white', '')} mb-4 group-hover:ring-4 ring-opacity-20 transition-all duration-300`}>
-          <Icon className="w-8 h-8" /> {/* Icon size changed */}
+        {/* Subtle Background Gradient Mesh */}
+        <div className={`absolute top-0 right-0 w-32 h-32 ${config.bg} blur-3xl rounded-full -mr-16 -mt-16 opacity-20 group-hover:opacity-40 transition-opacity duration-500`} />
+
+        <div className={`p-3 rounded-xl ${config.bg} ${config.accent} mb-5 relative z-10 ring-1 ring-white/5 group-hover:scale-110 transition-transform duration-300`}>
+          <Icon className="w-6 h-6" strokeWidth={2} />
         </div>
-        <h2 className="text-xl font-bold text-gray-800 mb-2 group-hover:text-gray-900">{title}</h2>
-        <p className="text-gray-500 text-sm mb-4 leading-relaxed flex-grow">{description}</p>
-        <div className="flex items-center text-sm font-medium text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
-          Open Tool <ArrowRight className="w-4 h-4 ml-1" />
+
+        <h3 className="text-lg font-bold text-white mb-2 tracking-tight group-hover:text-gray-100 transition-colors relative z-10">
+            {title}
+        </h3>
+        
+        <p className="text-sm text-gray-400 mb-6 leading-relaxed flex-grow relative z-10">
+            {description}
+        </p>
+
+        <div className={`flex items-center text-xs font-bold uppercase tracking-wider ${config.accent} opacity-100 transform translate-x-0 transition-all duration-300 relative z-10`}>
+          Launch Tool <ArrowRight className="w-3.5 h-3.5 ml-1 group-hover:translate-x-1 transition-transform" />
         </div>
       </motion.div>
     </Link>

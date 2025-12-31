@@ -86,7 +86,7 @@ const JpgToPdf = () => {
         schema={jsonLd}
       />
       
-      <p className="text-gray-500 mb-6 text-center">
+      <p className="text-gray-400 mb-6 text-center">
         Turn your images into a single, polished PDF.
       </p>
 
@@ -104,14 +104,14 @@ const JpgToPdf = () => {
         <div className="w-full">
              <div className="space-y-4 mb-8 max-h-[400px] overflow-y-auto custom-scrollbar p-1">
                 {files.map((f, index) => (
-                    <div key={index} className="flex items-center justify-between p-4 bg-gray-50 border rounded-xl group relative">
+                    <div key={index} className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-xl group relative hover:bg-white/10 transition-colors">
                          <div className="flex items-center overflow-hidden">
                             <Image className="w-8 h-8 text-blue-500 mr-3 flex-shrink-0" />
-                            <span className="font-medium text-gray-700 truncate">{f.name}</span>
+                            <span className="font-medium text-gray-200 truncate">{f.name}</span>
                          </div>
                          <button
                             onClick={() => removeFile(index)}
-                            className="text-gray-400 hover:text-blue-500 p-1 transition-colors"
+                            className="text-gray-500 hover:text-blue-500 p-1 transition-colors"
                          >
                              ✕
                          </button>
@@ -125,11 +125,11 @@ const JpgToPdf = () => {
                 </div>
              )}
 
-            <div className="text-center sticky bottom-0 bg-white pt-2">
+            <div className="text-center sticky bottom-0 bg-[#0a0a0a]/95 backdrop-blur-xl pt-4 border-t border-white/5 pb-2 -mx-6 px-6">
                 <button 
                     onClick={processFiles}
                     disabled={loading}
-                    className={`bg-blue-600 text-white text-xl font-bold py-4 px-10 rounded-xl hover:bg-blue-700 transition shadow-lg flex items-center justify-center mx-auto gap-2 w-full
+                    className={`bg-blue-600 text-white text-xl font-bold py-4 px-10 rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-600/20 flex items-center justify-center mx-auto gap-2 w-full
                         ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                     {loading ? (

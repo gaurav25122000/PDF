@@ -97,39 +97,41 @@ const SignatureModal = ({ isOpen, onClose, onSave }) => {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col">
-                <div className="flex items-center justify-between p-4 border-b">
-                    <h3 className="font-bold text-lg">Add Signature</h3>
-                    <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-full">
-                        <X className="w-5 h-5 text-gray-500" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <div className="bg-[#111] border border-white/10 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col">
+                <div className="flex items-center justify-between p-4 border-b border-white/10">
+                    <h3 className="font-bold text-lg text-white">Add Signature</h3>
+                    <button onClick={onClose} className="p-1 hover:bg-white/10 rounded-full text-gray-400 hover:text-white transition-colors">
+                        <X className="w-5 h-5" />
                     </button>
                 </div>
 
-                <div className="flex border-b">
+                <div className="flex border-b border-white/10 bg-black/20">
                     <button
                         onClick={() => setActiveTab('draw')}
-                        className={`flex-1 p-3 flex items-center justify-center gap-2 text-sm font-medium ${activeTab === 'draw' ? 'bg-purple-50 text-purple-600 border-b-2 border-purple-600' : 'text-gray-600 hover:bg-gray-50'}`}
+                        className={`flex-1 p-3 flex items-center justify-center gap-2 text-sm font-medium transition-colors ${activeTab === 'draw' ? 'bg-white/5 text-red-500 border-b-2 border-red-500' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
                     >
                         <PenTool className="w-4 h-4" /> Draw
                     </button>
                     <button
                         onClick={() => setActiveTab('type')}
-                        className={`flex-1 p-3 flex items-center justify-center gap-2 text-sm font-medium ${activeTab === 'type' ? 'bg-purple-50 text-purple-600 border-b-2 border-purple-600' : 'text-gray-600 hover:bg-gray-50'}`}
+                        className={`flex-1 p-3 flex items-center justify-center gap-2 text-sm font-medium transition-colors ${activeTab === 'type' ? 'bg-white/5 text-red-500 border-b-2 border-red-500' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
                     >
                         <Type className="w-4 h-4" /> Type
                     </button>
                     <button
                         onClick={() => setActiveTab('upload')}
-                        className={`flex-1 p-3 flex items-center justify-center gap-2 text-sm font-medium ${activeTab === 'upload' ? 'bg-purple-50 text-purple-600 border-b-2 border-purple-600' : 'text-gray-600 hover:bg-gray-50'}`}
+                        className={`flex-1 p-3 flex items-center justify-center gap-2 text-sm font-medium transition-colors ${activeTab === 'upload' ? 'bg-white/5 text-red-500 border-b-2 border-red-500' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
                     >
                         <Upload className="w-4 h-4" /> Upload
                     </button>
                 </div>
 
-                <div className="p-6 min-h-[250px] flex flex-col items-center justify-center bg-gray-50">
+                <div className="p-6 min-h-[250px] flex flex-col items-center justify-center bg-[#0a0a0a]">
                     {activeTab === 'draw' && (
-                        <div className="w-full h-40 bg-white border-2 border-dashed border-gray-300 rounded-lg relative">
+                        <div className="w-full h-40 bg-white border-2 border-dashed border-gray-600 rounded-lg relative overflow-hidden">
+                             {/* Canvas stays white for standard ink signature behavior, or we could make it dark with white ink? 
+                                Typically signatures are black on white. Keep white for now for better contrast export. */}
                             <canvas
                                 ref={canvasRef}
                                 className="w-full h-full cursor-crosshair touch-none"
@@ -138,7 +140,7 @@ const SignatureModal = ({ isOpen, onClose, onSave }) => {
                                 onMouseUp={stopDrawing}
                                 onMouseLeave={stopDrawing}
                             />
-                            <button onClick={clearCanvas} className="absolute top-2 right-2 p-1 text-gray-400 hover:text-red-500 bg-white shadow rounded-full" title="Clear">
+                            <button onClick={clearCanvas} className="absolute top-2 right-2 p-1 text-gray-500 hover:text-red-500 bg-gray-100/50 shadow rounded-full backdrop-blur-sm" title="Clear">
                                 <Trash2 className="w-4 h-4" />
                             </button>
                         </div>
@@ -151,26 +153,26 @@ const SignatureModal = ({ isOpen, onClose, onSave }) => {
                                 placeholder="Type your name"
                                 value={typedName}
                                 onChange={(e) => setTypedName(e.target.value)}
-                                className="w-full p-3 text-2xl font-[cursive] border-b-2 border-gray-300 focus:border-purple-600 outline-none bg-transparent text-center"
+                                className="w-full p-3 text-2xl font-[cursive] border-b-2 border-gray-700 focus:border-red-500 outline-none bg-transparent text-center text-white placeholder-gray-600"
                                 style={{ fontFamily: "'Brush Script MT', cursive" }}
                             />
-                            <p className="text-center text-xs text-gray-400 mt-2">Preview above</p>
+                            <p className="text-center text-xs text-gray-500 mt-4">Preview above</p>
                         </div>
                     )}
 
                     {activeTab === 'upload' && (
                         <div className="w-full text-center">
                              {uploadedImage ? (
-                                 <div className="relative inline-block">
-                                     <img src={uploadedImage} className="max-h-40 object-contain border rounded bg-white" />
-                                     <button onClick={() => setUploadedImage(null)} className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full shadow">
+                                 <div className="relative inline-block group">
+                                     <img src={uploadedImage} className="max-h-40 object-contain border border-white/10 rounded bg-white/5" />
+                                     <button onClick={() => setUploadedImage(null)} className="absolute -top-2 -right-2 bg-red-600 text-white p-1 rounded-full shadow hover:bg-red-700">
                                          <X className="w-3 h-3" />
                                      </button>
                                  </div>
                              ) : (
-                                 <label className="cursor-pointer flex flex-col items-center gap-2 p-8 border-2 border-dashed border-gray-300 rounded-lg hover:bg-white hover:border-purple-400 transition">
-                                     <Upload className="w-8 h-8 text-gray-400" />
-                                     <span className="text-sm text-gray-500">Click to upload image</span>
+                                 <label className="cursor-pointer flex flex-col items-center gap-2 p-8 border-2 border-dashed border-white/10 rounded-xl hover:bg-white/5 hover:border-red-500/50 transition-all group">
+                                     <Upload className="w-8 h-8 text-gray-500 group-hover:text-red-500 transition-colors" />
+                                     <span className="text-sm text-gray-400 group-hover:text-gray-200">Click to upload image</span>
                                      <input type="file" accept="image/*" className="hidden" onChange={handleUpload} />
                                  </label>
                              )}
@@ -178,11 +180,11 @@ const SignatureModal = ({ isOpen, onClose, onSave }) => {
                     )}
                 </div>
 
-                <div className="p-4 border-t flex justify-end gap-2">
-                    <button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm font-medium">Cancel</button>
+                <div className="p-4 border-t border-white/10 flex justify-end gap-3 bg-[#111]">
+                    <button onClick={onClose} className="px-4 py-2 text-gray-400 hover:bg-white/10 hover:text-white rounded-lg text-sm font-medium transition-colors">Cancel</button>
                     <button
                         onClick={handleSave}
-                        className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium flex items-center gap-2 shadow-sm"
+                        className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-bold flex items-center gap-2 shadow-lg shadow-red-600/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                         disabled={activeTab === 'type' && !typedName || activeTab === 'upload' && !uploadedImage}
                     >
                         <Check className="w-4 h-4" /> Add Signature

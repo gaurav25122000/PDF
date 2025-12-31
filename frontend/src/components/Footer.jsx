@@ -1,72 +1,71 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Mail } from 'lucide-react';
+import { Mail, Github, Twitter, Heart } from 'lucide-react';
 
 const Footer = () => {
   return (
-    <footer className="bg-marvel-black text-gray-400 border-t border-gray-800 mt-auto relative z-10">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
+    <footer className="border-t border-white/10 bg-black/20 backdrop-blur-lg mt-auto relative z-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
           
           {/* Brand */}
-          <div className="col-span-1 md:col-span-1">
-             <div className="flex items-center mb-4">
-                <div className="bg-marvel-red text-white font-heading text-xl px-2 pt-1 pb-1 tracking-tighter select-none">
-                MARVEL
+          <div className="col-span-1 md:col-span-1 space-y-4">
+             <Link to="/" className="flex items-center gap-2 group">
+                <div className="w-8 h-8 rounded-lg bg-red-600 flex items-center justify-center">
+                    <span className="font-bold text-white text-lg">M</span>
                 </div>
-                <span className="ml-1 font-heading text-xl tracking-tighter text-white">PDF</span>
-            </div>
-            <p className="text-sm text-gray-400 mb-4">
-               Legendary PDF tools for everyday heroes. Merge, split, and edit with superpower speed.
+                <span className="font-heading text-lg font-bold text-white">MarvelPDF</span>
+            </Link>
+            <p className="text-sm text-gray-500 leading-relaxed">
+               Professional PDF tools for everyone. 
+               <br/>Secure, fast, and free.
             </p>
-            <p className="text-xs text-gray-400">
-              © {new Date().getFullYear()} MarvelPDF. All rights reserved.
-            </p>
-          </div>
-
-          {/* Links */}
-          <div>
-            <h3 className="text-white font-bold uppercase tracking-wider mb-4">Product</h3>
-            <ul className="space-y-2 text-sm">
-                <li><Link to="/merge-pdf" className="hover:text-marvel-red transition-colors">Merge PDF</Link></li>
-                <li><Link to="/split-pdf" className="hover:text-marvel-red transition-colors">Split PDF</Link></li>
-                <li><Link to="/compress-pdf" className="hover:text-marvel-red transition-colors">Compress PDF</Link></li>
-                <li><Link to="/pdf-to-word" className="hover:text-marvel-red transition-colors">Convert to Word</Link></li>
-            </ul>
-          </div>
-
-          <div>
-             <h3 className="text-white font-bold uppercase tracking-wider mb-4">Support</h3>
-             <ul className="space-y-2 text-sm">
-                <li><Link to="/contact" className="hover:text-marvel-red transition-colors">Contact Us</Link></li>
-                <li><Link to="/about" className="hover:text-marvel-red transition-colors">About Us</Link></li>
-                <li><Link to="/faq" className="hover:text-marvel-red transition-colors">FAQ</Link></li>
-             </ul>
-          </div>
-
-          <div>
-             <h3 className="text-white font-bold uppercase tracking-wider mb-4">Legal</h3>
-             <ul className="space-y-2 text-sm">
-                <li><Link to="/privacy" className="hover:text-marvel-red transition-colors">Privacy Policy</Link></li>
-                <li><Link to="/terms" className="hover:text-marvel-red transition-colors">Terms of Service</Link></li>
-                <li><Link to="/security" className="hover:text-marvel-red transition-colors">Security</Link></li>
-             </ul>
-          </div>
-
-          {/* Contact */}
-          <div>
-            <h3 className="text-white font-bold uppercase tracking-wider mb-4">Contact</h3>
-            <div className="flex flex-col space-y-3 text-sm">
-                <a href="mailto:support@marvelpdf.com" className="flex items-center gap-2 hover:text-white transition-colors">
-                    <Mail size={16} className="text-marvel-red" />
-                    support@marvelpdf.com
-                </a>
-                <div className="flex space-x-4 mt-2">
-                    {/* Social links removed */}
-                </div>
+            <div className="flex items-center gap-4 pt-2">
+                 <a href="#" className="text-gray-500 hover:text-white transition-colors"><Twitter size={18} /></a>
+                 <a href="#" className="text-gray-500 hover:text-white transition-colors"><Github size={18} /></a>
             </div>
           </div>
 
+          {/* Links Groups */}
+          {[
+              { title: "Product", links: [
+                  { label: "Merge PDF", to: "/merge-pdf" },
+                  { label: "Split PDF", to: "/split-pdf" },
+                  { label: "Compress PDF", to: "/compress-pdf" },
+                  { label: "Convert PDF", to: "/pdf-to-word" },
+              ]},
+              { title: "Resources", links: [
+                  { label: "Blog", to: "/#" },
+                  { label: "Developers", to: "/#" },
+                  { label: "Status", to: "/#" },
+              ]},
+              { title: "Company", links: [
+                  { label: "About", to: "/about" },
+                  { label: "Contact", to: "/contact" },
+                  { label: "Privacy", to: "/privacy" },
+                  { label: "Terms", to: "/terms" },
+              ]}
+          ].map((group) => (
+              <div key={group.title}>
+                <h3 className="text-sm font-semibold text-white tracking-wider uppercase mb-4">{group.title}</h3>
+                <ul className="space-y-3 text-sm">
+                    {group.links.map(link => (
+                        <li key={link.label}>
+                            <Link to={link.to} className="text-gray-500 hover:text-red-500 transition-colors">
+                                {link.label}
+                            </Link>
+                        </li>
+                    ))}
+                </ul>
+              </div>
+          ))}
+        </div>
+        
+        <div className="border-t border-white/5 mt-12 pt-8 flex flex-col md:flex-row items-center justify-between text-xs text-gray-600">
+            <p>© {new Date().getFullYear()} MarvelPDF Inc. All rights reserved.</p>
+            <p className="flex items-center gap-1 mt-2 md:mt-0">
+                Made with <Heart size={12} className="text-red-900 fill-red-900" /> in the Multiverse
+            </p>
         </div>
       </div>
     </footer>
