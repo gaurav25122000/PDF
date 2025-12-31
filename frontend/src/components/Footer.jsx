@@ -4,7 +4,7 @@ import { Mail } from 'lucide-react';
 
 const Footer = () => {
   return (
-    <footer className="bg-marvel-black text-gray-400 border-t border-gray-800 mt-auto">
+    <footer className="bg-marvel-black text-gray-400 border-t border-gray-800 mt-auto relative z-10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
           

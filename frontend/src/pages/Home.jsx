@@ -1,10 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-// Helmet is handled inside SEO component
 import SEO from '../components/SEO';
 import ToolCard from '../components/ToolCard';
 import UsageBanner from '../components/UsageBanner';
-// import Fuse from 'fuse.js'; // Removed static import
 import {
   Combine,
   Scissors,
@@ -20,12 +18,15 @@ import {
   Search
 } from 'lucide-react';
 
-const Home = () => {
-  const [query, setQuery] = useState('');
-  const [filteredTools, setFilteredTools] = useState([]);
-  const [fuseInstance, setFuseInstance] = useState(null);
-
-  const tools = useMemo(() => [
+// Define tools outside component to ensure immutability and simple access
+const TOOLS = [
+    {
+      title: "Edit PDF",
+      description: "Add text, shapes, comments and highlights to a PDF file.",
+      icon: Edit3, 
+      to: "/edit-pdf",
+      color: "purple"
+    },
     {
       title: "Merge PDF",
       description: "Combine PDFs in the order you want with the easiest PDF merger available.",
@@ -92,28 +93,21 @@ const Home = () => {
     {
       title: "Watermark",
       description: "Stamp an image or text over your PDF in seconds.",
-      icon: Image, // Using Image icon
+      icon: Image, 
       to: "/watermark-pdf",
       color: "red"
     },
     {
       title: "Page Numbers",
       description: "Add page numbers into your PDFs with ease.",
-      icon: FileText, // Using FileText
+      icon: FileText, 
       to: "/page-numbers",
       color: "red"
     },
     {
-      title: "Edit PDF",
-      description: "Add text, shapes, comments and highlights to a PDF file.",
-      icon: Edit3, 
-      to: "/edit-pdf",
-      color: "purple"
-    },
-    {
       title: "Sign PDF",
       description: "Sign yourself or request electronic signatures.",
-      icon: PenTool, // Requires import
+      icon: PenTool, 
       to: "/sign-pdf",
       color: "green"
     },
@@ -145,41 +139,53 @@ const Home = () => {
       to: "/excel-to-pdf",
       color: "green"
     }
-  ], []); 
+];
 
-  // Initial load: show all tools
+const Home = () => {
+  const [query, setQuery] = useState('');
+  const [filteredTools, setFilteredTools] = useState([...TOOLS]); // Use a Copy
+  const [fuseInstance, setFuseInstance] = useState(null);
+
+  // Load Fuse.js in background
   useEffect(() => {
-    setFilteredTools(tools);
-  }, [tools]);
-
-
-  // Dynamic Fuse Loading and Filtering
-  useEffect(() => {
-    if (!query) {
-        setFilteredTools(tools);
-        return;
-    }
-
-    const search = async () => {
-        let fuse = fuseInstance;
-        if (!fuse) {
+     const loadFuse = async () => {
+         try {
             const { default: Fuse } = await import('fuse.js');
-            fuse = new Fuse(tools, {
+            setFuseInstance(new Fuse(TOOLS, {
                 keys: ['title', 'description', 'keywords'], 
                 threshold: 0.3, 
-            });
-            setFuseInstance(fuse);
-        }
-        
-        const results = fuse.search(query).map(result => result.item);
-        setFilteredTools(results);
-    };
+                ignoreLocation: true 
+            }));
+         } catch (e) {
+             console.error("Failed to load search engine", e);
+         }
+     };
+     loadFuse();
+  }, []);
 
-    const timeoutId = setTimeout(search, 300); // Debounce
-    return () => clearTimeout(timeoutId);
+  const handleSearch = (e) => {
+      const newQuery = e.target.value;
+      setQuery(newQuery);
 
-  }, [query, tools, fuseInstance]);
+      if (!newQuery.trim()) {
+          setFilteredTools([...TOOLS]); // Reset to full list immediately
+          return;
+      }
 
+      if (fuseInstance) {
+          // Use Fuse if loaded
+          const results = fuseInstance.search(newQuery).map(result => result.item);
+          setFilteredTools(results);
+      } else {
+          // Fallback simple search if Fuse not ready yet
+          const lowerQuery = newQuery.toLowerCase();
+          const results = TOOLS.filter(tool => 
+              tool.title.toLowerCase().includes(lowerQuery) || 
+              tool.description.toLowerCase().includes(lowerQuery)
+          );
+          setFilteredTools(results);
+      }
+  };
 
   const container = {
     hidden: { opacity: 0 },
@@ -227,29 +233,16 @@ const Home = () => {
 
       <div className="bg-marvel-black text-white py-20 px-4">
         <div className="w-full px-4 text-center">
-          <motion.h1 
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="font-heading text-4xl md:text-5xl font-extrabold mb-6 tracking-tighter uppercase w-full block"
-          >
+          {/* Static HTML for LCP optimization - CSS animation only */}
+          <h1 className="font-heading text-4xl md:text-5xl font-extrabold mb-6 tracking-tighter uppercase w-full block animate-[fadeIn_0.6s_ease-out]">
             Unleash the Power of <span className="text-marvel-red">PDFs</span>
-          </motion.h1>
-          <motion.p 
-             initial={{ opacity: 0 }}
-             animate={{ opacity: 1 }}
-             transition={{ delay: 0.2 }}
-             className="text-xl md:text-2xl text-gray-300 mb-10 max-w-2xl mx-auto"
-          >
+          </h1>
+          <p className="text-xl md:text-2xl text-gray-300 mb-10 max-w-2xl mx-auto animate-[fadeIn_0.6s_ease-out_0.2s_both]">
             The most powerful PDF tools in the multiverse. Merge, split, compress, and conquer your documents with just a few clicks.
-          </motion.p>
+          </p>
           
-          {/* Search Bar */}
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="relative max-w-xl mx-auto group"
-          >
+          {/* Search Bar - Keep motion or make static? Static is safer for CLS/LCP */}
+          <div className="relative max-w-xl mx-auto group animate-[fadeIn_0.6s_ease-out_0.3s_both]">
             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                 <Search className="h-6 w-6 text-gray-500 group-focus-within:text-marvel-red transition-colors" />
             </div>
@@ -259,24 +252,21 @@ const Home = () => {
                 className="block w-full pl-12 pr-4 py-4 rounded-2xl bg-white/10 border border-gray-700 backdrop-blur-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-marvel-red focus:bg-white/20 transition-all text-lg"
                 placeholder="Search for tools (e.g. 'merge', 'word', 'sign')..."
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={handleSearch}
             />
-          </motion.div>
+          </div>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20 -mt-10">
         <motion.div 
-            // Reset animation when list changes to give feedback? 
-            // Or just use AnimatePresence if we want items to pop in/out. 
-            // For now, simple list re-render is fine.
-            key={query} // Key change forces re-animation of the list
+            key={query === '' ? 'all-tools' : 'filtered-tools'} 
             variants={container}
             initial="hidden"
             animate="show"
             className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6"
         >
-          {filteredTools.map((tool, index) => (
+          {filteredTools.map((tool) => (
             <motion.div variants={item} key={tool.to} className="h-full">
                 <ToolCard {...tool} />
             </motion.div>

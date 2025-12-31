@@ -1045,9 +1045,11 @@ const EditPDF = () => {
 
   return (
     <div className="flex h-screen bg-gray-100 overflow-hidden flex-col">
-       <Helmet>
-        <title>Edit PDF | MarvelPDF</title>
-       </Helmet>
+       <SEO 
+        title="Edit PDF - Free Online PDF Editor" 
+        description="Edit PDF files online for free. Add text, images, shapes, highlights, and annotations to your PDF documents. No installation required."
+        keywords="edit pdf, pdf editor, free online pdf editor, annotate pdf, add text to pdf"
+       />
 
        {/* Top Toolbar */}
        <div className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 z-20 shadow-sm">

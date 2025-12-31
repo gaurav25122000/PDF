@@ -2,3 +2,4 @@ netlify/functions/node_modules
 netlify/functions/package-lock.json
 *package-lock.json*
 *node_modules*
+.agent

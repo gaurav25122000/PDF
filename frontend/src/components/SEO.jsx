@@ -15,13 +15,29 @@ const SEO = ({ title, description, keywords, image, type = 'website', schema }) 
   const fullTitle = title ? `${title} | MarvelPDF` : defaultTitle;
   const metaDescription = description || defaultDescription;
 
+  // Hreflang logic (example usage: passing [{ lang: 'es', url: 'https://es.marvelpdf.com' }])
+  const hrefLangs = [
+      { lang: 'en', url: `${siteUrl}${location.pathname}` }, 
+      // In a real multi-lingual app, you'd dynamically generate this or pass generic alternatives
+  ];
+
   return (
-    <Helmet>
+    <Helmet
+      htmlAttributes={{
+        lang: 'en', // Default to English, can be made dynamic prop
+      }}
+    >
       {/* Basic Metadata */}
       <title>{fullTitle}</title>
       <meta name="description" content={metaDescription} />
       {keywords && <meta name="keywords" content={keywords} />}
       <link rel="canonical" href={currentUrl} />
+
+      {/* Multilingual SEO */}
+      {hrefLangs.map((hl) => (
+        <link key={hl.lang} rel="alternate" hreflang={hl.lang} href={hl.url} />
+      ))}
+      <link rel="alternate" hreflang="x-default" href={siteUrl} />
 
       {/* Open Graph / Facebook */}
       <meta property="og:type" content={type} />
@@ -30,6 +46,8 @@ const SEO = ({ title, description, keywords, image, type = 'website', schema }) 
       <meta property="og:description" content={metaDescription} />
       <meta property="og:image" content={finalImage} />
       <meta property="og:site_name" content="MarvelPDF" />
+      <meta property="og:locale" content="en_US" />
+      {/* Example for other locales: <meta property="og:locale:alternate" content="es_ES" /> */}
 
       {/* Twitter Card */}
       <meta name="twitter:card" content="summary_large_image" />
