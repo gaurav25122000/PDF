@@ -102,8 +102,8 @@ const Terms = () => {
               <section id="contact" className="scroll-mt-32">
                 <h2>5. Contact Us</h2>
                 <p>Questions about these Terms?</p>
-                 <a href="mailto:marvel.pdf.queries@gmail.com" className="no-underline text-marvel-red hover:underline font-bold text-xl block mt-2">
-                  marvel.pdf.queries@gmail.com
+                 <a href="mailto:support@marvelpdf.com" className="no-underline text-marvel-red hover:underline font-bold text-xl block mt-2">
+                  support@marvelpdf.com
                 </a>
               </section>
 

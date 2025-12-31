@@ -50,7 +50,7 @@ const About = () => {
               We wanted to build something different—a suite of tools that feels <strong>premium</strong> but remains <strong>free</strong>.
             </p>
             <div className="flex gap-4">
-              <a href="mailto:marvel.pdf.queries@gmail.com" className="bg-marvel-black text-white px-6 py-3 rounded-xl font-bold hover:bg-gray-900 transition-colors inline-flex items-center gap-2">
+              <a href="mailto:support@marvelpdf.com" className="bg-marvel-black text-white px-6 py-3 rounded-xl font-bold hover:bg-gray-900 transition-colors inline-flex items-center gap-2">
                 <Users size={18} /> Join the Community
               </a>
             </div>

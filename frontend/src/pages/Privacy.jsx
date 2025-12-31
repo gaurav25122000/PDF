@@ -129,8 +129,8 @@ const Privacy = () => {
                 <p>
                   Questions about your privacy?
                 </p>
-                <a href="mailto:marvel.pdf.queries@gmail.com" className="no-underline text-marvel-red hover:underline font-bold text-xl block mt-2">
-                  marvel.pdf.queries@gmail.com
+                <a href="mailto:support@marvelpdf.com" className="no-underline text-marvel-red hover:underline font-bold text-xl block mt-2">
+                  support@marvelpdf.com
                 </a>
               </section>
             </div>

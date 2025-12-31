@@ -110,7 +110,7 @@ const Security = () => {
                     If you believe you've found a security bug in MarvelPDF, please report it to us immediately. 
                     We appreciate your help.
                 </p>
-                <a href="mailto:marvel.pdf.queries@gmail.com" className="inline-flex items-center justify-center gap-2 bg-white text-marvel-black font-bold py-3 px-6 rounded-xl hover:bg-gray-100 transition-colors relative z-10">
+                <a href="mailto:support@marvelpdf.com" className="inline-flex items-center justify-center gap-2 bg-white text-marvel-black font-bold py-3 px-6 rounded-xl hover:bg-gray-100 transition-colors relative z-10">
                     <ShieldCheck size={20} /> Contact Security Team
                 </a>
             </div>
@@ -118,7 +118,7 @@ const Security = () => {
 
         <div className="border-t border-gray-100 pt-12 text-center">
             <p className="text-gray-500 text-sm">
-                Questions about our security practices? Email us at <a href="mailto:marvel.pdf.queries@gmail.com" className="text-marvel-red hover:underline">marvel.pdf.queries@gmail.com</a>
+                Questions about our security practices? Email us at <a href="mailto:support@marvelpdf.com" className="text-marvel-red hover:underline">support@marvelpdf.com</a>
             </p>
         </div>
 
