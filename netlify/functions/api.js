@@ -1140,7 +1140,8 @@ router.post('/process/pdf-to-jpg', express.json(), async (req, res) => {
         const uint8Array = new Uint8Array(buffer);
 
         // Dynamic import to avoid Require(ESM) error
-        const pdfjsLib = await import('pdfjs-dist');
+        // Dynamic import to avoid Require(ESM) error - Using legacy build for better Node compatibility
+        const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
 
         const loadingTask = pdfjsLib.getDocument({
              data: uint8Array,
