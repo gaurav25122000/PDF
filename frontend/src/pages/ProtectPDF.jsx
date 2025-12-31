@@ -82,7 +82,7 @@ const ProtectPDF = () => {
         schema={jsonLd}
       />
       
-      <p className="text-gray-500 mb-6 text-center">
+      <p className="text-gray-400 mb-6 text-center">
         Lock your PDF with a superhero-strength password.
       </p>
 
@@ -92,27 +92,27 @@ const ProtectPDF = () => {
         </div>
       ) : (
         <div className="w-full max-w-lg mx-auto">
-             <div className="flex flex-col items-center justify-center p-6 bg-gray-50 border rounded-xl mb-6 relative group">
-                <File className="w-16 h-16 text-marvel-red mb-2" />
-                <span className="font-medium text-gray-700">{file.name}</span>
+             <div className="flex flex-col items-center justify-center p-6 bg-white/5 border border-white/10 rounded-xl mb-6 relative group hover:bg-white/10 transition-colors">
+                <File className="w-16 h-16 text-red-500 mb-2" />
+                <span className="font-medium text-gray-200">{file.name}</span>
                 <button 
                     onClick={() => setFile(null)}
-                    className="absolute top-2 right-2 text-gray-400 hover:text-marvel-red p-1"
+                    className="absolute top-2 right-2 text-gray-500 hover:text-red-500 p-1 transition-colors"
                 >
                     ✕
                 </button>
             </div>
              
              <div className="mb-6">
-                <label className="block text-gray-700 font-bold mb-2">Set Password:</label>
+                <label className="block text-gray-300 font-bold mb-2 text-sm uppercase tracking-wide">Set Password:</label>
                 <input 
                     type="password" 
                     placeholder="Enter strong password" 
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-marvel-red focus:border-red-500 outline-none transition"
+                    className="w-full px-4 py-3 rounded-xl border border-white/10 bg-[#1a1a1a] text-white focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition placeholder-gray-600"
                 />
-                <p className="text-xs text-gray-500 mt-1">Minimum 6 characters required.</p>
+                <p className="text-xs text-gray-500 mt-2">Minimum 6 characters required.</p>
              </div>
              
             {error && (
@@ -121,11 +121,11 @@ const ProtectPDF = () => {
                 </div>
             )}
 
-            <div className="text-center sticky bottom-0 bg-white pt-2">
+            <div className="text-center sticky bottom-0 bg-[#0a0a0a]/95 backdrop-blur-xl pt-4 border-t border-white/5 pb-2 -mx-6 px-6">
                 <button 
                     onClick={processFile}
                     disabled={loading || !password}
-                    className={`bg-marvel-red text-white text-xl font-bold py-4 px-10 rounded-xl hover:bg-red-700 transition shadow-lg flex items-center justify-center mx-auto gap-2 w-full
+                    className={`bg-red-600 text-white text-xl font-bold py-4 px-10 rounded-xl hover:bg-red-700 transition shadow-lg shadow-red-600/20 flex items-center justify-center mx-auto gap-2 w-full
                         ${loading || !password ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                     {loading ? (

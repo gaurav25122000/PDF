@@ -79,20 +79,22 @@ const UsageBanner = () => {
     const isLimitReached = remaining === 0;
 
     return (
-        <div className={`w-full py-3 px-4 flex items-center justify-center gap-4 text-sm font-medium transition-colors ${
-            isLimitReached ? 'bg-marvel-red text-white' : 'bg-gray-100 text-gray-600'
+        <div className={`w-full py-2 px-4 flex items-center justify-center gap-3 text-xs font-medium border-b backdrop-blur-md transition-colors ${
+            isLimitReached 
+                ? 'bg-red-500/10 border-red-500/20 text-red-400' 
+                : 'bg-white/5 border-white/5 text-gray-400'
         }`}>
             {isLimitReached ? (
                 <>
-                    <AlertCircle size={18} />
+                    <AlertCircle size={14} />
                     <span>Daily limit reached. Resets in {timeLeft}</span>
                 </>
             ) : (
                 <>
-                    <Clock size={18} className="text-marvel-red" />
+                    <Clock size={14} className={isLimitReached ? "text-red-500" : "text-gray-500"} />
                     <span>
-                        <span className="font-bold text-marvel-black">{remaining}</span> free tasks remaining today. 
-                        {status.resetTime && <span className="opacity-75 ml-1"> (Resets in {timeLeft})</span>}
+                        <span className="font-bold text-gray-200">{remaining}</span> free tasks remaining today. 
+                        {status.resetTime && <span className="opacity-60 ml-1"> (Resets in {timeLeft})</span>}
                     </span>
                 </>
             )}

@@ -243,60 +243,83 @@ const SignPDF = () => {
         schema={jsonLd}
       />
       
-      <p className="text-gray-500 mb-6 text-center">
+      <p className="text-gray-400 mb-6 text-center">
         Sign yourself or request electronic signatures.
       </p>
 
+      {/* File Loaded View */}
       {!file ? (
         <div className="w-full">
             <FileUploader onFilesSelected={handleFiles} multiple={false} accept=".pdf" />
         </div>
       ) : (
-        <div className="w-full h-full flex flex-col">
-            <div className="flex-1 flex flex-col md:flex-row gap-6 min-h-0 overflow-hidden">
-                <div ref={pagesContainerRef} className="flex-1 bg-gray-100 rounded-xl overflow-auto p-4 flex flex-col items-center border border-gray-200">
+        <div className="w-full h-full flex flex-col relative">
+            
+             {/* Close File Button */}
+             <div className="absolute top-4 right-4 z-20">
+                 <button 
+                    onClick={() => setFile(null)}
+                    className="bg-black/50 hover:bg-red-500/80 p-2 rounded-full backdrop-blur-md text-white border border-white/10 transition-all shadow-lg"
+                    title="Close file"
+                >
+                    ✕
+                </button>
+            </div>
+
+            <div className="flex-1 flex flex-col md:flex-row gap-6 min-h-0 overflow-hidden relative">
+                
+                {/* PDF Viewer Container */}
+                <div ref={pagesContainerRef} className="flex-1 bg-[#0f0f0f] rounded-xl overflow-auto p-4 flex flex-col items-center border border-white/10 relative custom-scrollbar shadow-inner">
                      {Array.from({ length: numPages }, (_, i) => i + 1).map(page => (
-                         <PDFPage 
-                            key={page} 
-                            pageNumber={page} 
-                            pdfDoc={pdfDoc}
-                            onCanvasReady={handleCanvasReady}
-                            scale={scale}
-                         />
+                         <div key={page} className="shadow-2xl mb-4">
+                            <PDFPage 
+                                pageNumber={page} 
+                                pdfDoc={pdfDoc}
+                                onCanvasReady={handleCanvasReady}
+                                scale={scale}
+                            />
+                         </div>
                      ))}
                      
                      {loading && (
-                        <div className="fixed inset-0 flex items-center justify-center bg-white/50 z-50">
-                            <Loader2 className="animate-spin w-12 h-12 text-marvel-red" />
+                        <div className="fixed inset-0 flex items-center justify-center bg-black/80 backdrop-blur-sm z-50">
+                            <div className="flex flex-col items-center">
+                                <Loader2 className="animate-spin w-12 h-12 text-marvel-red mb-4" />
+                                <span className="text-white font-medium">Loading PDF...</span>
+                            </div>
                         </div>
                      )}
                 </div>
 
+                {/* Right Sidebar - Tools */}
                 <div className="w-full md:w-80 flex flex-col gap-6 overflow-y-auto">
-                    <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
-                        <h3 className="font-bold text-gray-800 mb-4 flex items-center justify-between">
+                    <div className="bg-[#1a1a1a] p-5 rounded-xl shadow-xl border border-white/10 relative overflow-hidden backdrop-blur-md">
+                        {/* Glass Gradient */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
+                        
+                        <h3 className="font-bold text-white mb-4 flex items-center justify-between relative z-10">
                             <div className="flex items-center">
                                 <PenTool className="w-5 h-5 mr-2 text-marvel-red" /> Signature Tools
                             </div>
-                            <span className="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-1 rounded">Page {activePage}</span>
+                            <span className="text-xs font-normal text-gray-300 bg-white/10 px-2 py-1 rounded border border-white/5">Page {activePage}</span>
                         </h3>
                         
                         <button 
                             onClick={() => setShowSignModal(true)}
-                            className="w-full bg-marvel-red text-white font-bold py-4 rounded-xl hover:bg-red-700 transition shadow-md flex items-center justify-center gap-2 mb-4"
+                            className="w-full bg-marvel-red text-white font-bold py-4 rounded-xl hover:bg-red-600 transition shadow-lg shadow-red-900/20 flex items-center justify-center gap-2 mb-4 relative z-10"
                         >
                             <Plus className="w-5 h-5" /> Add Signature
                         </button>
                         
-                        <p className="text-xs text-gray-400 mt-2 text-center leading-relaxed">
-                            Signature will be added to <b>Page {activePage}</b>.
+                        <p className="text-xs text-gray-400 mt-2 text-center leading-relaxed relative z-10">
+                            Signature will be added to <b className="text-gray-200">Page {activePage}</b>.
                             <br/>
                             Drag to position/resize.
                         </p>
                     </div>
 
                     {error && (
-                        <div className="p-3 bg-red-50 text-marvel-red text-sm font-medium rounded-lg text-center">
+                        <div className="p-3 bg-red-900/20 text-red-200 text-sm font-medium rounded-lg text-center border border-red-500/20">
                             {error}
                         </div>
                     )}
@@ -310,11 +333,11 @@ const SignPDF = () => {
             />
 
 
-            <div className="mt-6 pt-4 border-t border-gray-100 flex justify-center sticky bottom-0 bg-white">
+            <div className="mt-6 pt-4 border-t border-white/5 flex justify-center sticky bottom-0 bg-[#0a0a0a]/95 backdrop-blur-xl -mx-6 px-6 pb-2 z-30">
                  <button 
                     onClick={savePdf}
                     disabled={processing || loading}
-                    className={`bg-marvel-red text-white text-xl font-bold py-4 px-12 rounded-xl hover:bg-red-700 transition shadow-lg flex items-center justify-center gap-2
+                    className={`bg-marvel-red text-white text-xl font-bold py-4 px-12 rounded-xl hover:bg-red-600 transition shadow-lg shadow-red-900/20 flex items-center justify-center gap-2 w-full md:w-auto
                         ${(processing || loading) ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                     {processing ? (
@@ -326,16 +349,6 @@ const SignPDF = () => {
                             Sign & Download PDF <ShieldCheck className="w-5 h-5 ml-2" />
                         </>
                     )}
-                </button>
-            </div>
-            
-            <div className="absolute top-4 right-4 z-10">
-                 <button 
-                    onClick={() => setFile(null)}
-                    className="bg-white/90 p-2 rounded-full shadow-sm hover:text-marvel-red transition"
-                    title="Close file"
-                >
-                    ✕
                 </button>
             </div>
         </div>

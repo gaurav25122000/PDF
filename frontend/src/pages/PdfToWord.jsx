@@ -140,7 +140,7 @@ const PdfToWord = () => {
         schema={jsonLd}
       />
       
-      <p className="text-gray-500 mb-6 text-center">
+      <p className="text-gray-400 mb-6 text-center">
         Transform static PDFs into editable Word documents.
       </p>
 
@@ -150,12 +150,12 @@ const PdfToWord = () => {
         </div>
       ) : (
         <div className="w-full max-w-lg mx-auto">
-             <div className="flex flex-col items-center justify-center p-6 bg-gray-50 border rounded-xl mb-6 relative group">
+             <div className="flex flex-col items-center justify-center p-6 bg-white/5 border border-white/10 rounded-xl mb-6 relative group hover:bg-white/10 transition-colors">
                 <File className="w-16 h-16 text-blue-600 mb-2" />
-                <span className="font-medium text-gray-700">{file.name}</span>
+                <span className="font-medium text-gray-200">{file.name}</span>
                 <button 
                     onClick={() => setFile(null)}
-                    className="absolute top-2 right-2 text-gray-400 hover:text-blue-600 p-1"
+                    className="absolute top-2 right-2 text-gray-500 hover:text-blue-600 p-1 transition-colors"
                 >
                     ✕
                 </button>
@@ -167,11 +167,11 @@ const PdfToWord = () => {
                 </div>
             )}
 
-            <div className="text-center sticky bottom-0 bg-white pt-2">
+            <div className="text-center sticky bottom-0 bg-[#0a0a0a]/95 backdrop-blur-xl pt-4 border-t border-white/5 pb-2 -mx-6 px-6">
                 <button 
                     onClick={processFile}
                     disabled={loading}
-                    className={`bg-blue-600 text-white text-xl font-bold py-4 px-10 rounded-xl hover:bg-blue-700 transition shadow-lg flex items-center justify-center mx-auto gap-2 w-full
+                    className={`bg-blue-600 text-white text-xl font-bold py-4 px-10 rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-600/20 flex items-center justify-center mx-auto gap-2 w-full
                         ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                     {loading ? (

@@ -48,7 +48,7 @@ function App() {
     <HelmetProvider>
       <AuthProvider>
         <Router>
-          <div className="flex flex-col min-h-screen bg-gray-50 text-gray-900 font-sans relative">
+          <div className="flex flex-col min-h-screen font-sans relative text-gray-100">
             <Navbar />
             <main className="flex-grow relative">
               <ContentWrapper />
@@ -80,7 +80,7 @@ const ContentWrapper = () => {
             )}
 
             {/* Routes */}
-            <div className={(isStandardPage || isRoot) ? "w-full min-h-screen bg-gray-50 text-gray-900" : "absolute inset-0 z-10 pointer-events-none"}>
+            <div className={(isStandardPage || isRoot) ? "w-full min-h-screen text-gray-100" : "absolute inset-0 z-10 pointer-events-none"}>
                 <Suspense fallback={<div className="min-h-screen bg-white/80 z-50 flex items-center justify-center backdrop-blur-sm pointer-events-auto"><LoadingSpinner /></div>}>
                   <Routes>
                     <Route path="/" element={<Home />} /> {/* Render Home explicitly on Root */}
@@ -107,7 +107,7 @@ const ContentWrapper = () => {
                     <Route path="/pdf-to-powerpoint" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><PdfToPptx /></div>} />
                     <Route path="/word-to-pdf" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><WordToPdf /></div>} />
                     <Route path="/excel-to-pdf" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><ExcelToPdf /></div>} />
-                    <Route path="/edit-pdf" element={<div className="pointer-events-auto absolute inset-0 bg-white z-50"><EditPDF /></div>} />
+                    <Route path="/edit-pdf" element={<div className="pointer-events-auto absolute inset-0 bg-[#0a0a0a] z-50"><EditPDF /></div>} />
                     <Route path="/sign-pdf" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><SignPDF /></div>} />
                     <Route path="/protect-pdf" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><ProtectPDF /></div>} />
                     <Route path="/unlock-pdf" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><UnlockPDF /></div>} />

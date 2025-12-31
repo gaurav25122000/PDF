@@ -92,7 +92,7 @@ const MergePDF = () => {
       />
       
       {/* Description for SEO (visually can be subtle or hidden if modal is tight, but let's keep it clean) */}
-      <p className="text-gray-500 mb-6 text-center">
+      <p className="text-gray-400 mb-6 text-center">
         Assemble multiple PDFs into one unified document.
       </p>
 
@@ -104,14 +104,14 @@ const MergePDF = () => {
         <div className="w-full">
              <div className="space-y-4 mb-8 max-h-[400px] overflow-y-auto custom-scrollbar p-1">
                 {files.map((f, index) => (
-                    <div key={index} className="flex items-center justify-between p-4 bg-gray-50 border rounded-xl group relative">
+                    <div key={index} className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-xl group relative hover:bg-white/10 transition-colors">
                          <div className="flex items-center overflow-hidden">
-                            <File className="w-8 h-8 text-marvel-red mr-3 flex-shrink-0" />
-                            <span className="font-medium text-gray-700 truncate">{f.name}</span>
+                            <File className="w-8 h-8 text-red-500 mr-3 flex-shrink-0" />
+                            <span className="font-medium text-gray-200 truncate">{f.name}</span>
                          </div>
                          <button
                             onClick={() => removeFile(index)}
-                            className="text-gray-400 hover:text-marvel-red p-1 transition-colors"
+                            className="text-gray-500 hover:text-red-500 p-1 transition-colors"
                          >
                              ✕
                          </button>
@@ -125,11 +125,11 @@ const MergePDF = () => {
                 </div>
              )}
 
-            <div className="text-center sticky bottom-0 bg-white pt-4">
+            <div className="text-center sticky bottom-0 bg-[#0a0a0a]/95 backdrop-blur-xl pt-4 border-t border-white/5 pb-2 -mx-6 px-6">
                 <button 
                     onClick={mergeFiles}
                     disabled={loading || files.length < 2}
-                    className={`bg-marvel-red text-white text-xl font-bold py-4 px-10 rounded-xl hover:bg-red-700 transition shadow-lg flex items-center justify-center mx-auto gap-2 w-full
+                    className={`bg-red-600 text-white text-xl font-bold py-4 px-10 rounded-xl hover:bg-red-700 transition shadow-lg shadow-red-600/20 flex items-center justify-center mx-auto gap-2 w-full
                         ${loading || files.length < 2 ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                     {loading ? (
@@ -145,7 +145,7 @@ const MergePDF = () => {
             </div>
             {/* Add more to add another file? */}
              <div className="mt-4 text-center">
-                <label className="text-blue-600 hover:text-blue-800 cursor-pointer font-medium text-sm">
+                <label className="text-blue-400 hover:text-blue-300 cursor-pointer font-medium text-sm transition-colors">
                    + Add more files
                    <input type="file" multiple accept=".pdf" className="hidden" onChange={(e) => handleFiles(e.target.files)} />
                 </label>
