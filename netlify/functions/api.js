@@ -8,7 +8,7 @@ import archiver from 'archiver';
 import { Stream } from 'stream';
 import fs from 'fs';
 import path from 'path';
-import { createCanvas } from 'canvas';
+import { createCanvas } from '@napi-rs/canvas';
 // import * as pdfjsLib from 'pdfjs-dist'; // Use dynamic import instead
 
 const app = express();
