@@ -8,7 +8,7 @@ import archiver from 'archiver';
 import { Stream } from 'stream';
 import fs from 'fs';
 import path from 'path';
-import { createCanvas } from '@napi-rs/canvas';
+import { createCanvas } from 'canvas';
 // import * as pdfjsLib from 'pdfjs-dist'; // Use dynamic import instead
 
 const app = express();
@@ -1140,8 +1140,10 @@ router.post('/process/pdf-to-jpg', express.json(), async (req, res) => {
         const uint8Array = new Uint8Array(buffer);
 
         // Dynamic import to avoid Require(ESM) error
-        // Dynamic import to avoid Require(ESM) error - Using legacy build for better Node compatibility
-        const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
+        // Use CommonJS require for legacy build (v3 compatible)
+        const { createRequire } = await import('module');
+        const require = createRequire(import.meta.url);
+        const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
 
         const loadingTask = pdfjsLib.getDocument({
              data: uint8Array,
