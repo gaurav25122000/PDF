@@ -7,6 +7,21 @@ const SignatureModal = ({ isOpen, onClose, onSave }) => {
     const [activeTab, setActiveTab] = useState('draw'); // draw, type, upload
     const [typedName, setTypedName] = useState('');
     const [uploadedImage, setUploadedImage] = useState(null);
+    const [selectedFont, setSelectedFont] = useState("'Brush Script MT', cursive");
+
+    // Signature font options
+    const signatureFonts = [
+        { name: 'Brush Script', value: "'Brush Script MT', cursive" },
+        { name: 'Cursive', value: "cursive" },
+        { name: 'Dancing Script', value: "'Dancing Script', cursive" },
+        { name: 'Pacifico', value: "'Pacifico', cursive" },
+        { name: 'Great Vibes', value: "'Great Vibes', cursive" },
+        { name: 'Sacramento', value: "'Sacramento', cursive" },
+        { name: 'Allura', value: "'Allura', cursive" },
+        { name: 'Alex Brush', value: "'Alex Brush', cursive" },
+        { name: 'Times New Roman', value: "'Times New Roman', serif" },
+        { name: 'Georgia', value: "'Georgia', serif" }
+    ];
 
     // Draw State
     const canvasRef = useRef(null);
@@ -82,7 +97,7 @@ const SignatureModal = ({ isOpen, onClose, onSave }) => {
             const ctx = canvas.getContext('2d');
             canvas.width = 400;
             canvas.height = 100;
-            ctx.font = "48px 'Brush Script MT', cursive";
+            ctx.font = `48px ${selectedFont}`;
             ctx.fillStyle = "black";
             ctx.fillText(typedName, 20, 70);
             dataUrl = canvas.toDataURL();
@@ -147,16 +162,27 @@ const SignatureModal = ({ isOpen, onClose, onSave }) => {
                     )}
 
                     {activeTab === 'type' && (
-                        <div className="w-full">
+                        <div className="w-full space-y-4">
+                            <select
+                                value={selectedFont}
+                                onChange={(e) => setSelectedFont(e.target.value)}
+                                className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            >
+                                {signatureFonts.map((font) => (
+                                    <option key={font.value} value={font.value}>
+                                        {font.name}
+                                    </option>
+                                ))}
+                            </select>
                             <input
                                 type="text"
                                 placeholder="Type your name"
                                 value={typedName}
                                 onChange={(e) => setTypedName(e.target.value)}
-                                className="w-full p-3 text-2xl font-[cursive] border-b-2 border-gray-300 focus:border-purple-600 outline-none bg-transparent text-center"
-                                style={{ fontFamily: "'Brush Script MT', cursive" }}
+                                className="w-full p-3 text-2xl border-b-2 border-gray-300 focus:border-purple-600 outline-none bg-transparent text-center"
+                                style={{ fontFamily: selectedFont }}
                             />
-                            <p className="text-center text-xs text-gray-400 mt-2">Preview above</p>
+                            <p className="text-center text-xs text-gray-400">Preview above</p>
                         </div>
                     )}
 

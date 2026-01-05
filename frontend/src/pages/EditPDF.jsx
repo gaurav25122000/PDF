@@ -45,9 +45,15 @@ const EditPDF = () => {
     const [color, setColor] = useState('#000000');
     const [strokeWidth, setStrokeWidth] = useState(2);
 
+    // -- Font Controls --
+    const [selectedFontSize, setSelectedFontSize] = useState(16);
+    const [selectedFontFamily, setSelectedFontFamily] = useState('Times New Roman');
+    const [selectedTextColor, setSelectedTextColor] = useState('#000000');
+
     // -- Data Storage --
     const pageStates = useRef({});
     const pageTextMaps = useRef({});
+    const editedTextAreas = useRef({});  // Track edited text positions to skip hover
     const [showSignModal, setShowSignModal] = useState(false);
 
     // 1. Load File & PDF
@@ -88,6 +94,26 @@ const EditPDF = () => {
         setThumbnails(thumbs);
     };
 
+    // Helper function to map PDF fonts to web-safe fonts
+    const mapPdfFontToWebFont = (pdfFontName) => {
+        if (!pdfFontName) return 'Times New Roman, serif';
+        
+        const fontLower = pdfFontName.toLowerCase();
+        
+        // Common PDF font mappings
+        if (fontLower.includes('times')) return 'Times New Roman, serif';
+        if (fontLower.includes('arial')) return 'Arial, Helvetica, sans-serif';
+        if (fontLower.includes('helvetica')) return 'Arial, Helvetica, sans-serif';
+        if (fontLower.includes('courier')) return 'Courier New, monospace';
+        if (fontLower.includes('georgia')) return 'Georgia, serif';
+        if (fontLower.includes('verdana')) return 'Verdana, sans-serif';
+        if (fontLower.includes('comic')) return 'Comic Sans MS, cursive';
+        if (fontLower.includes('trebuchet')) return 'Trebuchet MS, sans-serif';
+        
+        // Default fallback
+        return 'Times New Roman, serif';
+    };
+
     // 2. Extract Text Data (Grouped by Line)
     const extractPageText = async (page, viewport) => {
         const key = `${page.pageNumber}-${scale}`;
@@ -123,7 +149,10 @@ const EditPDF = () => {
                 const scaledFontSize = Math.sqrt(item.transform[0] * item.transform[0] + item.transform[1] * item.transform[1]);
                 const finalFontSize = scaledFontSize * scale;
 
-                tempCtx.font = `${finalFontSize}px ${item.fontName}, "Times New Roman", serif`;
+                // Map PDF font to web font
+                const webFont = mapPdfFontToWebFont(item.fontName);
+
+                tempCtx.font = `${finalFontSize}px ${webFont}`;
                 const metrics = tempCtx.measureText(item.str);
 
                 let ascent = metrics.actualBoundingBoxAscent || metrics.fontBoundingBoxAscent;
@@ -142,7 +171,8 @@ const EditPDF = () => {
                     w: pixelWidth,
                     h: ascent + descent,
                     fontSize: finalFontSize,
-                    fontFamily: item.fontName,
+                    fontFamily: webFont,  // Store mapped web font
+                    pdfFontName: item.fontName,  // Store original PDF font name
                     baselineY: py,
                     measuredAscent: ascent,
                     measuredDescent: descent
@@ -319,13 +349,50 @@ const EditPDF = () => {
         });
     };
 
-    // ADDED: Keydown listener for Nudge to help user calibrate alignment interactively
+    // Update selected IText when font controls change
+    useEffect(() => {
+        if (!fabricCanvas.current) return;
+        
+        const active = fabricCanvas.current.getActiveObject();
+        
+        if (active && (active.type === 'i-text' || active.type === 'IText')) {
+            // Update font even when editing - allows changing font while typing
+            active.set({
+                fontFamily: selectedFontFamily,
+                fontSize: selectedFontSize,
+                fill: selectedTextColor
+            });
+            fabricCanvas.current.requestRenderAll();
+        }
+    }, [selectedFontSize, selectedFontFamily, selectedTextColor]);
+
+    // Keydown listener for nudging objects (not when editing text)
     useEffect(() => {
         const handleKey = (e) => {
+            // Only handle arrow keys
+            if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                return;
+            }
+
+            // Don't interfere with text editing in textarea/input (Fabric's hidden input)
+            if (e.target.tagName === 'TEXTAREA' || 
+                e.target.tagName === 'INPUT' ||
+                document.activeElement?.tagName === 'TEXTAREA' ||
+                document.activeElement?.tagName === 'INPUT') {
+                return;
+            }
+
             if (!fabricCanvas.current) return;
             const active = fabricCanvas.current.getActiveObject();
+
             if (!active || active.data?.type !== 'native_text') return;
 
+            // Check isEditing first and return WITHOUT preventDefault
+            if (active.isEditing) {
+                return; // Let browser/Fabric handle it
+            }
+
+            // Only move object if not editing
             let dx = 0, dy = 0;
             if (e.key === 'ArrowUp') dy = -1;
             if (e.key === 'ArrowDown') dy = 1;
@@ -333,7 +400,7 @@ const EditPDF = () => {
             if (e.key === 'ArrowRight') dx = 1;
 
             if (dx !== 0 || dy !== 0) {
-                e.preventDefault(); // Stop scrolling
+                e.preventDefault(); // Only prevent when actually moving object
                 active.set({ left: active.left + dx, top: active.top + dy });
                 active.setCoords();
                 fabricCanvas.current.requestRenderAll();
@@ -357,6 +424,15 @@ const EditPDF = () => {
         let isDragging = false;
         let startPoint = null;
         let activeShape = null;
+
+        // Helper to check if area is edited
+        const isAreaEdited = (x, y, pageKey) => {
+            const editedAreas = editedTextAreas.current[pageKey] || [];
+            return editedAreas.some(area => 
+                x >= area.x && x <= area.x + area.w &&
+                y >= area.y && y <= area.y + area.h
+            );
+        };
 
         // NATIVE FALLBACK SETUP
         const upperEl = canvas.upperCanvasEl;
@@ -385,11 +461,13 @@ const EditPDF = () => {
 
                 if (toolRef.current !== 'select') return;
 
-                // 2. Highlight Logic
-                const textMap = pageTextMaps.current[`${currentPage}-${scale}`] || [];
+                // 2. Highlight Logic - Skip edited areas
+                const pageKey = `${currentPage}-${scale}`;
+                const textMap = pageTextMaps.current[pageKey] || [];
                 const hit = textMap.find(item =>
                     pointer.x >= item.x && pointer.x <= item.x + item.w &&
-                    pointer.y >= item.y && pointer.y <= item.y + item.h
+                    pointer.y >= item.y && pointer.y <= item.y + item.h &&
+                    !isAreaEdited(pointer.x, pointer.y, pageKey)  // Skip edited areas
                 );
 
                 if (hit) {
@@ -450,6 +528,8 @@ const EditPDF = () => {
                     try {
                         // Try to activate, but don't crash if it fails
                         canvas.setActiveObject(target);
+                        // DON'T auto-enter editing - let Fabric handle it
+                        // Single click = select object, double click = enter editing
                     } catch (err) {
                         // setActiveObject failed silently
                     }
@@ -458,11 +538,13 @@ const EditPDF = () => {
                     return; // Stop here!
                 }
 
-                // 2. Create Ghost Text
-                const textMap = pageTextMaps.current[`${currentPage}-${scale}`] || [];
+                // 2. Create Ghost Text - Skip if area already edited
+                const pageKey = `${currentPage}-${scale}`;
+                const textMap = pageTextMaps.current[pageKey] || [];
                 const hit = textMap.find(item =>
                     pointer.x >= item.x && pointer.x <= item.x + item.w &&
-                    pointer.y >= item.y && pointer.y <= item.y + item.h
+                    pointer.y >= item.y && pointer.y <= item.y + item.h &&
+                    !isAreaEdited(pointer.x, pointer.y, pageKey)
                 );
 
                 if (hit) {
@@ -483,15 +565,25 @@ const EditPDF = () => {
                         data: { type: 'redact' }
                     });
 
+                    // Use predicted font from PDF or user-selected font
+                    const useFontFamily = hit.fontFamily || selectedFontFamily;
+                    const useFontSize = hit.fontSize || selectedFontSize;
+
+                    // Update font control dropdowns to match the inserted text
+                    const fontNameOnly = useFontFamily.split(',')[0].trim();
+                    
+                    setSelectedFontFamily(fontNameOnly);
+                    setSelectedFontSize(Math.round(useFontSize));
+
                     // Editable Text Object
                     const iText = new IText(hit.text, {
                         left: hit.x,
                         top: hit.y,
                         originX: 'left',
                         originY: 'top',
-                        fontSize: hit.fontSize,
-                        fontFamily: 'Times New Roman',
-                        fill: 'black',
+                        fontSize: useFontSize,
+                        fontFamily: useFontFamily,
+                        fill: selectedTextColor,
                         data: { type: 'native_text' },
                         selectable: true,
                         evented: true,
@@ -509,15 +601,22 @@ const EditPDF = () => {
                     canvas.add(whiteout);
                     canvas.add(iText);
 
+                    // Track this edited area
+                    if (!editedTextAreas.current[pageKey]) {
+                        editedTextAreas.current[pageKey] = [];
+                    }
+                    editedTextAreas.current[pageKey].push({
+                        x: hit.x, y: hit.y, w: hit.w, h: hit.h
+                    });
+
                     draggingObj = iText;
                     lastPointer = pointer;
 
                     try {
                         canvas.setActiveObject(iText);
-                        iText.enterEditing();
-                        iText.selectAll();
+                        // Let user double-click to edit - single click just selects
                     } catch (err) {
-                        // Failed to enter editing
+                        // Failed to select
                     }
 
                     canvas.requestRenderAll();
@@ -617,6 +716,16 @@ const EditPDF = () => {
             }
         });
 
+        // Handle double-click to edit IText
+        canvas.on('mouse:dblclick', (opt) => {
+            const target = opt.target;
+            if (target && (target.type === 'i-text' || target.type === 'IText')) {
+                target.enterEditing();
+                target.selectAll();
+                canvas.requestRenderAll();
+            }
+        });
+
         // Hover Cursor & Highlight Logic
         // hoverHighlight is defined at top of setupEvents
 
@@ -626,11 +735,13 @@ const EditPDF = () => {
             if (isDragging) return;
 
             if (toolRef.current === 'select' && !opt.target) {
-                const textMap = pageTextMaps.current[`${currentPage}-${scale}`] || [];
+                const pageKey = `${currentPage}-${scale}`;
+                const textMap = pageTextMaps.current[pageKey] || [];
                 const pointer = getPointer(opt);
                 const hit = textMap.find(item =>
                     pointer.x >= item.x && pointer.x <= item.x + item.w &&
-                    pointer.y >= item.y && pointer.y <= item.y + item.h
+                    pointer.y >= item.y && pointer.y <= item.y + item.h &&
+                    !isAreaEdited(pointer.x, pointer.y, pageKey)  // Skip edited areas
                 );
 
                 if (hit) {
@@ -832,8 +943,94 @@ const EditPDF = () => {
                 </div>
 
                 <div className="flex items-center gap-4">
-                    <input type="color" value={color} onChange={e => setColor(e.target.value)} className="w-8 h-8 rounded border-0 cursor-pointer" />
-                    <input type="range" min="1" max="10" value={strokeWidth} onChange={e => setStrokeWidth(parseInt(e.target.value))} className="w-24" />
+                    {/* Text Controls - Only show for select/text tools */}
+                    {(tool === 'select' || tool === 'text') && (
+                        <>
+                            <select 
+                                value={selectedFontFamily} 
+                                onChange={e => setSelectedFontFamily(e.target.value)}
+                                className="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                title="Font Family"
+                            >
+                                <option value="Times New Roman">Times New Roman</option>
+                                <option value="Arial">Arial</option>
+                                <option value="Helvetica">Helvetica</option>
+                                <option value="Courier New">Courier New</option>
+                                <option value="Georgia">Georgia</option>
+                                <option value="Verdana">Verdana</option>
+                                <option value="Comic Sans MS">Comic Sans MS</option>
+                                <option value="Trebuchet MS">Trebuchet MS</option>
+                            </select>
+                            
+                            {/* Font Size Input with +/- Controls */}
+                            <div className="flex items-center border border-gray-300 rounded overflow-hidden">
+                                <button 
+                                    onClick={() => setSelectedFontSize(Math.max(1, selectedFontSize - 1))}
+                                    className="px-2 py-1 bg-gray-50 hover:bg-gray-100 border-r border-gray-300 text-sm font-bold"
+                                    title="Decrease font size"
+                                >
+                                    −
+                                </button>
+                                <input 
+                                    type="number"
+                                    value={selectedFontSize}
+                                    onChange={e => {
+                                        const val = parseInt(e.target.value);
+                                        if (!isNaN(val) && val > 0) {
+                                            setSelectedFontSize(val);
+                                        }
+                                    }}
+                                    className="w-16 px-2 py-1 text-center text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                    title="Font Size"
+                                    min="1"
+                                    max="200"
+                                />
+                                <button 
+                                    onClick={() => setSelectedFontSize(Math.min(200, selectedFontSize + 1))}
+                                    className="px-2 py-1 bg-gray-50 hover:bg-gray-100 border-l border-gray-300 text-sm font-bold"
+                                    title="Increase font size"
+                                >
+                                    +
+                                </button>
+                            </div>
+
+                            {/* Text Color Picker */}
+                            <input 
+                                type="color" 
+                                value={selectedTextColor} 
+                                onChange={e => setSelectedTextColor(e.target.value)} 
+                                className="w-8 h-8 rounded border cursor-pointer" 
+                                title="Text Color"
+                            />
+
+                            <div className="h-6 w-px bg-gray-300 mx-1" />
+                        </>
+                    )}
+                    
+                    {/* Drawing Color & Stroke for Pen/Shapes - Only show for drawing tools */}
+                    {(tool === 'draw' || tool === 'rect' || tool === 'circle') && (
+                        <>
+                            <input 
+                                type="color" 
+                                value={color} 
+                                onChange={e => setColor(e.target.value)} 
+                                className="w-8 h-8 rounded border cursor-pointer" 
+                                title="Drawing/Shape Color" 
+                            />
+                            <input 
+                                type="range" 
+                                min="1" 
+                                max="10" 
+                                value={strokeWidth} 
+                                onChange={e => setStrokeWidth(parseInt(e.target.value))} 
+                                className="w-24" 
+                                title="Stroke Width"
+                            />
+                            
+                            <div className="h-6 w-px bg-gray-300 mx-1" />
+                        </>
+                    )}
+                    
                     <button onClick={deleteSelected} className="p-2 text-red-500 hover:bg-red-50 rounded"><Trash2 className="w-5 h-5" /></button>
                     <button onClick={savePdf} disabled={processing} className="bg-purple-600 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-purple-700">
                         {processing ? <Loader2 className="animate-spin w-4 h-4" /> : <Download className="w-4 h-4" />} Save
