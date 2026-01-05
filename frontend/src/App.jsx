@@ -63,64 +63,64 @@ function App() {
 
 // Wrapper to handle conditional rendering
 const ContentWrapper = () => {
-    const location = useLocation();
-    const isStandardPage = [
-        '/login', '/signup', 
-        '/privacy', '/terms', '/security', '/faq', '/about', '/contact'
-    ].includes(location.pathname);
-    const isRoot = location.pathname === '/';
+  const location = useLocation();
+  const isStandardPage = [
+    '/login', '/signup',
+    '/privacy', '/terms', '/security', '/faq', '/about', '/contact'
+  ].includes(location.pathname);
+  const isRoot = location.pathname === '/';
 
-    return (
-        <>
-            {/* Show Home in background ONLY for Tool Routes (Not Standard, Not Root) */}
-            {!isStandardPage && !isRoot && (
-                <div className="w-full">
-                    <Home />
-                </div>
-            )}
+  return (
+    <>
+      {/* Show Home in background ONLY for Tool Routes (Not Standard, Not Root) */}
+      {!isStandardPage && !isRoot && (
+        <div className="w-full">
+          <Home />
+        </div>
+      )}
 
-            {/* Routes */}
-            <div className={(isStandardPage || isRoot) ? "w-full min-h-screen bg-gray-50 text-gray-900" : "absolute inset-0 z-10 pointer-events-none"}>
-                <Suspense fallback={<div className="min-h-screen bg-white/80 z-50 flex items-center justify-center backdrop-blur-sm pointer-events-auto"><LoadingSpinner /></div>}>
-                  <Routes>
-                    <Route path="/" element={<Home />} /> {/* Render Home explicitly on Root */}
-                    
-                    {/* Auth Routes & Standard Pages - Standard Flow */}
-                    <Route path="/login" element={<AuthModalWrapper><Login /></AuthModalWrapper>} />
-                    <Route path="/signup" element={<AuthModalWrapper><Signup /></AuthModalWrapper>} />
-                    
-                    <Route path="/privacy" element={<Privacy />} />
-                    <Route path="/terms" element={<Terms />} />
-                    <Route path="/security" element={<Security />} />
-                    <Route path="/faq" element={<FAQ />} />
-                    <Route path="/about" element={<About />} />
-                    <Route path="/contact" element={<Contact />} />
+      {/* Routes */}
+      <div className={(isStandardPage || isRoot) ? "w-full min-h-screen bg-gray-50 text-gray-900" : "absolute inset-0 z-10 pointer-events-none"}>
+        <Suspense fallback={<div className="min-h-screen bg-white/80 z-50 flex items-center justify-center backdrop-blur-sm pointer-events-auto"><LoadingSpinner /></div>}>
+          <Routes>
+            <Route path="/" element={<Home />} /> {/* Render Home explicitly on Root */}
 
-                    {/* Tool Routes - Each wraps content in standard ToolModal (Overlay Mode) */}
-                    <Route path="/merge-pdf" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><MergePDF /></div>} />
-                    <Route path="/split-pdf" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><SplitPDF /></div>} />
-                    <Route path="/compress-pdf" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><CompressPDF /></div>} />
-                    <Route path="/pdf-to-jpg" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><PdfToJpg /></div>} /> 
-                    <Route path="/jpg-to-pdf" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><JpgToPdf /></div>} />
-                    <Route path="/pdf-to-word" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><PdfToWord /></div>} />
-                    <Route path="/pdf-to-excel" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><PdfToExcel /></div>} />
-                    <Route path="/pdf-to-powerpoint" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><PdfToPptx /></div>} />
-                    <Route path="/word-to-pdf" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><WordToPdf /></div>} />
-                    <Route path="/excel-to-pdf" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><ExcelToPdf /></div>} />
-                    <Route path="/edit-pdf" element={<div className="pointer-events-auto absolute inset-0 bg-white z-50"><EditPDF /></div>} />
-                    <Route path="/sign-pdf" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><SignPDF /></div>} />
-                    <Route path="/protect-pdf" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><ProtectPDF /></div>} />
-                    <Route path="/unlock-pdf" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><UnlockPDF /></div>} />
-                    <Route path="/rotate-pdf" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><RotatePDF /></div>} />
-                    <Route path="/watermark-pdf" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><WatermarkPDF /></div>} />
-                    <Route path="/page-numbers" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><PageNumbersPDF /></div>} />
-                    
-                    <Route path="*" element={<div className="pointer-events-auto" />} />
-                  </Routes>
-                </Suspense>
-            </div>
-        </>
-    );
+            {/* Auth Routes & Standard Pages - Standard Flow */}
+            <Route path="/login" element={<AuthModalWrapper><Login /></AuthModalWrapper>} />
+            <Route path="/signup" element={<AuthModalWrapper><Signup /></AuthModalWrapper>} />
+
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/security" element={<Security />} />
+            <Route path="/faq" element={<FAQ />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/contact" element={<Contact />} />
+
+            {/* Tool Routes - Each wraps content in standard ToolModal (Overlay Mode) */}
+            <Route path="/merge-pdf" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><MergePDF /></div>} />
+            <Route path="/split-pdf" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><SplitPDF /></div>} />
+            <Route path="/compress-pdf" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><CompressPDF /></div>} />
+            <Route path="/pdf-to-jpg" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><PdfToJpg /></div>} />
+            <Route path="/jpg-to-pdf" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><JpgToPdf /></div>} />
+            <Route path="/pdf-to-word" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><PdfToWord /></div>} />
+            <Route path="/pdf-to-excel" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><PdfToExcel /></div>} />
+            <Route path="/pdf-to-powerpoint" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><PdfToPptx /></div>} />
+            <Route path="/word-to-pdf" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><WordToPdf /></div>} />
+            <Route path="/excel-to-pdf" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><ExcelToPdf /></div>} />
+            <Route path="/edit-pdf" element={<div className="pointer-events-auto absolute inset-0 bg-white z-50"><EditPDF /></div>} />
+            <Route path="/sign-pdf" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><SignPDF /></div>} />
+            <Route path="/protect-pdf" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><ProtectPDF /></div>} />
+            <Route path="/unlock-pdf" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><UnlockPDF /></div>} />
+            <Route path="/rotate-pdf" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><RotatePDF /></div>} />
+            <Route path="/watermark-pdf" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><WatermarkPDF /></div>} />
+            <Route path="/page-numbers" element={<div className="pointer-events-auto min-h-screen flex items-center justify-center"><PageNumbersPDF /></div>} />
+
+            <Route path="*" element={<div className="pointer-events-auto" />} />
+          </Routes>
+        </Suspense>
+      </div>
+    </>
+  );
 };
 
 export default App;

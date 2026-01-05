@@ -17,8 +17,8 @@ const SEO = ({ title, description, keywords, image, type = 'website', schema }) 
 
   // Hreflang logic (example usage: passing [{ lang: 'es', url: 'https://es.marvelpdf.com' }])
   const hrefLangs = [
-      { lang: 'en', url: `${siteUrl}${location.pathname}` }, 
-      // In a real multi-lingual app, you'd dynamically generate this or pass generic alternatives
+    { lang: 'en', url: `${siteUrl}${location.pathname}` },
+    // In a real multi-lingual app, you'd dynamically generate this or pass generic alternatives
   ];
 
   return (

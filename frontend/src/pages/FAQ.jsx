@@ -4,31 +4,31 @@ import { Link } from 'react-router-dom';
 import SEO from '../components/SEO';
 
 const FAQItem = ({ question, answer }) => {
-  const [isOpen, setIsOpen] = useState(false);
+    const [isOpen, setIsOpen] = useState(false);
 
-  return (
-    <div className="border border-gray-100 rounded-2xl bg-white overflow-hidden transition-all duration-300 hover:shadow-sm">
-      <button 
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between p-5 md:p-6 text-left focus:outline-none group bg-white"
-        aria-expanded={isOpen}
-      >
-        <span className={`font-bold text-lg md:text-xl pr-4 leading-snug ${isOpen ? 'text-marvel-red' : 'text-gray-900'} group-hover:text-marvel-red transition-colors`}>
-            {question}
-        </span>
-        <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-colors ${isOpen ? 'bg-marvel-red text-white' : 'bg-gray-100 text-gray-500 group-hover:bg-marvel-red/10 group-hover:text-marvel-red'}`}>
-            {isOpen ? <Minus size={18} /> : <Plus size={18} />}
+    return (
+        <div className="border border-gray-100 rounded-2xl bg-white overflow-hidden transition-all duration-300 hover:shadow-sm">
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="w-full flex items-center justify-between p-5 md:p-6 text-left focus:outline-none group bg-white"
+                aria-expanded={isOpen}
+            >
+                <span className={`font-bold text-lg md:text-xl pr-4 leading-snug ${isOpen ? 'text-marvel-red' : 'text-gray-900'} group-hover:text-marvel-red transition-colors`}>
+                    {question}
+                </span>
+                <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-colors ${isOpen ? 'bg-marvel-red text-white' : 'bg-gray-100 text-gray-500 group-hover:bg-marvel-red/10 group-hover:text-marvel-red'}`}>
+                    {isOpen ? <Minus size={18} /> : <Plus size={18} />}
+                </div>
+            </button>
+            <div
+                className={`overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}
+            >
+                <div className="p-5 md:p-6 pt-0 border-t border-transparent text-gray-600 leading-relaxed text-base md:text-lg">
+                    {answer}
+                </div>
+            </div>
         </div>
-      </button>
-      <div 
-        className={`overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}
-      >
-        <div className="p-5 md:p-6 pt-0 border-t border-transparent text-gray-600 leading-relaxed text-base md:text-lg">
-            {answer}
-        </div>
-      </div>
-    </div>
-  );
+    );
 };
 
 const FAQCategory = ({ title, icon: Icon, children }) => (
@@ -46,106 +46,106 @@ const FAQCategory = ({ title, icon: Icon, children }) => (
 );
 
 const FAQ = () => {
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, []);
+    useEffect(() => {
+        window.scrollTo(0, 0);
+    }, []);
 
-  return (
-    <div className="min-h-screen bg-gray-50 text-gray-800 py-12 px-4 sm:px-6 lg:px-8">
-      <SEO 
-        title="Frequently Asked Questions - MarvelPDF Support" 
-        description="Find answers to common questions about MarvelPDF. Learn about our free limits, file safety, and supported formats."
-        keywords="faq, help, support, pdf questions, how to merge pdf, pdf converter help"
-      />
-      
-      {/* Decorative Background */}
-      <div className="fixed top-0 inset-x-0 h-[400px] bg-gradient-to-b from-white to-gray-50 pointer-events-none -z-10" />
-      <div className="fixed top-1/4 left-10 w-64 h-64 bg-blue-100/50 rounded-full blur-[80px] -z-10 animate-pulse" />
-      <div className="fixed bottom-1/4 right-10 w-80 h-80 bg-red-100/40 rounded-full blur-[100px] -z-10" />
+    return (
+        <div className="min-h-screen bg-gray-50 text-gray-800 py-12 px-4 sm:px-6 lg:px-8">
+            <SEO
+                title="Frequently Asked Questions - MarvelPDF Support"
+                description="Find answers to common questions about MarvelPDF. Learn about our free limits, file safety, and supported formats."
+                keywords="faq, help, support, pdf questions, how to merge pdf, pdf converter help"
+            />
 
-      <div className="max-w-4xl mx-auto">
-        {/* Navigation */}
-        <Link to="/" className="inline-flex items-center gap-2 text-gray-500 hover:text-marvel-black transition-colors font-bold mb-8 md:mb-12 group">
-            <div className="p-2 bg-white rounded-lg shadow-sm border border-gray-100 group-hover:shadow-md transition-all">
-                <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
+            {/* Decorative Background */}
+            <div className="fixed top-0 inset-x-0 h-[400px] bg-gradient-to-b from-white to-gray-50 pointer-events-none -z-10" />
+            <div className="fixed top-1/4 left-10 w-64 h-64 bg-blue-100/50 rounded-full blur-[80px] -z-10 animate-pulse" />
+            <div className="fixed bottom-1/4 right-10 w-80 h-80 bg-red-100/40 rounded-full blur-[100px] -z-10" />
+
+            <div className="max-w-4xl mx-auto">
+                {/* Navigation */}
+                <Link to="/" className="inline-flex items-center gap-2 text-gray-500 hover:text-marvel-black transition-colors font-bold mb-8 md:mb-12 group">
+                    <div className="p-2 bg-white rounded-lg shadow-sm border border-gray-100 group-hover:shadow-md transition-all">
+                        <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
+                    </div>
+                    <span className="text-sm md:text-base">Back to Tools</span>
+                </Link>
+
+                {/* Header */}
+                <div className="text-center mb-16 md:mb-20">
+                    <h1 className="text-4xl md:text-6xl font-heading text-marvel-black mb-6">
+                        How can we help?
+                    </h1>
+                    <p className="text-xl text-gray-500 max-w-2xl mx-auto">
+                        Everything you need to know about MarvelPDF. Can't find the answer? <a href="mailto:support@marvelpdf.com" className="text-marvel-red underline hover:text-marvel-black transition-colors">Contact us</a>.
+                    </p>
+                </div>
+
+                {/* Categories */}
+                <FAQCategory title="General Questions" icon={HelpCircle}>
+                    <FAQItem
+                        question="Is MarvelPDF really free?"
+                        answer="Yes! We provide free access to all our high-quality PDF tools. To ensure the service remains fast and available for everyone, we have a generous daily limit of 3 tasks per user."
+                    />
+                    <FAQItem
+                        question="Do I need to create an account?"
+                        answer="No account is required for basic usage. You can merge, split, and convert PDFs instantly as a guest. Creating an account is optional and may unlock additional features in the future."
+                    />
+                    <FAQItem
+                        question="Can I use MarvelPDF on my phone?"
+                        answer="Absolutely. Our platform is 100% web-based and responsive. It works perfectly on iPhones, Androids, iPads, and Tablets without installing any apps."
+                    />
+                </FAQCategory>
+
+                <FAQCategory title="Security & Privacy" icon={Shield}>
+                    <FAQItem
+                        question="Are my files safe?"
+                        answer="Security is our #1 priority. Your files are transferred via encrypted SSL connections. We do not manually check your files. They are processed by automated algorithms."
+                    />
+                    <FAQItem
+                        question="When is my data deleted?"
+                        answer="We implement a strict 'zero-retention' policy. All uploaded files and processed documents are automatically and permanently deleted from our servers within 2 hours."
+                    />
+                </FAQCategory>
+
+                <FAQCategory title="Technical Support" icon={Sliders}>
+                    <FAQItem
+                        question="What is the maximum file size?"
+                        answer="Currently, you can upload files up to 50MB per task. We find this covers 99% of PDF needs. If you have larger files, try our 'Compress PDF' tool first!"
+                    />
+                    <FAQItem
+                        question="Why did my conversion fail?"
+                        answer="Conversion failures usually happen if a file is password-protected, corrupted, or extremely complex (e.g., scanned images without text layer). Ensure your file is not encrypted before uploading."
+                    />
+                    <FAQItem
+                        question="My PDF has weird formatting after conversion."
+                        answer="PDF to Word conversion is complex. While we use advanced OCR and layout engines, complex tables or custom fonts may sometimes shift. We are constantly improving our algorithms to handle these edge cases."
+                    />
+                </FAQCategory>
+
+                <div className="bg-marvel-black text-white rounded-3xl p-8 md:p-12 text-center relative overflow-hidden">
+                    <div className="relative z-10">
+                        <h3 className="text-2xl md:text-3xl font-heading mb-4">Still need help?</h3>
+                        <p className="text-gray-400 mb-8 max-w-xl mx-auto">
+                            Our support team is ready to assist you with any specific issues or feature requests.
+                        </p>
+                        <a
+                            href="mailto:support@marvelpdf.com"
+                            className="inline-flex items-center px-8 py-4 bg-marvel-red text-white text-lg font-bold rounded-xl hover:bg-red-600 transition-all shadow-lg hover:shadow-red-900/20 transform hover:-translate-y-1"
+                        >
+                            Email Support
+                        </a>
+                    </div>
+
+                    {/* Abstract lines bg */}
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-marvel-red/10 rounded-full blur-[80px] pointer-events-none" />
+                    <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-500/10 rounded-full blur-[80px] pointer-events-none" />
+                </div>
+
             </div>
-            <span className="text-sm md:text-base">Back to Tools</span>
-        </Link>
-        
-        {/* Header */}
-        <div className="text-center mb-16 md:mb-20">
-            <h1 className="text-4xl md:text-6xl font-heading text-marvel-black mb-6">
-                How can we help?
-            </h1>
-            <p className="text-xl text-gray-500 max-w-2xl mx-auto">
-                Everything you need to know about MarvelPDF. Can't find the answer? <a href="mailto:support@marvelpdf.com" className="text-marvel-red underline hover:text-marvel-black transition-colors">Contact us</a>.
-            </p>
         </div>
-        
-        {/* Categories */}
-        <FAQCategory title="General Questions" icon={HelpCircle}>
-            <FAQItem 
-                question="Is MarvelPDF really free?" 
-                answer="Yes! We provide free access to all our high-quality PDF tools. To ensure the service remains fast and available for everyone, we have a generous daily limit of 3 tasks per user."
-            />
-            <FAQItem 
-                question="Do I need to create an account?" 
-                answer="No account is required for basic usage. You can merge, split, and convert PDFs instantly as a guest. Creating an account is optional and may unlock additional features in the future."
-            />
-            <FAQItem 
-                question="Can I use MarvelPDF on my phone?" 
-                answer="Absolutely. Our platform is 100% web-based and responsive. It works perfectly on iPhones, Androids, iPads, and Tablets without installing any apps."
-            />
-        </FAQCategory>
-
-        <FAQCategory title="Security & Privacy" icon={Shield}>
-            <FAQItem 
-                question="Are my files safe?" 
-                answer="Security is our #1 priority. Your files are transferred via encrypted SSL connections. We do not manually check your files. They are processed by automated algorithms."
-            />
-            <FAQItem 
-                question="When is my data deleted?" 
-                answer="We implement a strict 'zero-retention' policy. All uploaded files and processed documents are automatically and permanently deleted from our servers within 2 hours."
-            />
-        </FAQCategory>
-
-        <FAQCategory title="Technical Support" icon={Sliders}>
-            <FAQItem 
-                question="What is the maximum file size?" 
-                answer="Currently, you can upload files up to 50MB per task. We find this covers 99% of PDF needs. If you have larger files, try our 'Compress PDF' tool first!"
-            />
-             <FAQItem 
-                question="Why did my conversion fail?" 
-                answer="Conversion failures usually happen if a file is password-protected, corrupted, or extremely complex (e.g., scanned images without text layer). Ensure your file is not encrypted before uploading."
-            />
-            <FAQItem 
-                question="My PDF has weird formatting after conversion." 
-                answer="PDF to Word conversion is complex. While we use advanced OCR and layout engines, complex tables or custom fonts may sometimes shift. We are constantly improving our algorithms to handle these edge cases."
-            />
-        </FAQCategory>
-
-        <div className="bg-marvel-black text-white rounded-3xl p-8 md:p-12 text-center relative overflow-hidden">
-            <div className="relative z-10">
-                <h3 className="text-2xl md:text-3xl font-heading mb-4">Still need help?</h3>
-                <p className="text-gray-400 mb-8 max-w-xl mx-auto">
-                    Our support team is ready to assist you with any specific issues or feature requests.
-                </p>
-                <a 
-                    href="mailto:support@marvelpdf.com" 
-                    className="inline-flex items-center px-8 py-4 bg-marvel-red text-white text-lg font-bold rounded-xl hover:bg-red-600 transition-all shadow-lg hover:shadow-red-900/20 transform hover:-translate-y-1"
-                >
-                    Email Support
-                </a>
-            </div>
-            
-             {/* Abstract lines bg */}
-             <div className="absolute top-0 right-0 w-64 h-64 bg-marvel-red/10 rounded-full blur-[80px] pointer-events-none" />
-             <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-500/10 rounded-full blur-[80px] pointer-events-none" />
-        </div>
-
-      </div>
-    </div>
-  );
+    );
 };
 
 export default FAQ;

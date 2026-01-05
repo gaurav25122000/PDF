@@ -15,55 +15,55 @@ const MergePDF = () => {
     setFiles(prev => [...prev, ...Array.from(fileList)]);
     setError(null);
   };
-  
+
   const removeFile = (index) => {
     setFiles(prev => prev.filter((_, i) => i !== index));
   }
 
   const mergeFiles = async () => {
     if (files.length < 2) {
-        setError("Please select at least 2 PDF files.");
-        return;
+      setError("Please select at least 2 PDF files.");
+      return;
     }
 
     setLoading(true);
     setError(null);
 
     try {
-        const keys = [];
-        
-        // 1. Upload each file to S3
-        for (const file of files) {
-             // Get Presigned URL
-             const uploadConfigRes = await axios.post('/api/s3/upload-url', {
-                 filename: file.name,
-                 contentType: file.type
-             });
-             const { uploadUrl, key } = uploadConfigRes.data;
-             
-             // Upload to S3
-             await fetch(uploadUrl, {
-                 method: 'PUT',
-                 body: file,
-                 headers: { 'Content-Type': file.type }
-             });
-             
-             keys.push(key);
-        }
+      const keys = [];
 
-        // 2. Trigger Merge with keys
-        const response = await axios.post('/api/process/merge', { keys });
-        
-        // 3. Download result
-        const { downloadUrl } = response.data;
-        window.open(downloadUrl, '_blank');
-        
-        window.dispatchEvent(new Event('usage-updated')); 
+      // 1. Upload each file to S3
+      for (const file of files) {
+        // Get Presigned URL
+        const uploadConfigRes = await axios.post('/api/s3/upload-url', {
+          filename: file.name,
+          contentType: file.type
+        });
+        const { uploadUrl, key } = uploadConfigRes.data;
+
+        // Upload to S3
+        await fetch(uploadUrl, {
+          method: 'PUT',
+          body: file,
+          headers: { 'Content-Type': file.type }
+        });
+
+        keys.push(key);
+      }
+
+      // 2. Trigger Merge with keys
+      const response = await axios.post('/api/process/merge', { keys });
+
+      // 3. Download result
+      const { downloadUrl } = response.data;
+      window.open(downloadUrl, '_blank');
+
+      window.dispatchEvent(new Event('usage-updated'));
     } catch (err) {
-        console.error("Merge error:", err);
-        setError("Failed to merge PDFs. Please try again.");
+      console.error("Merge error:", err);
+      setError("Failed to merge PDFs. Please try again.");
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
   };
 
@@ -84,13 +84,13 @@ const MergePDF = () => {
 
   return (
     <ToolModal title="Merge PDF files">
-      <SEO 
-        title="Merge PDF - Combine PDF Files Online for Free" 
+      <SEO
+        title="Merge PDF - Combine PDF Files Online for Free"
         description="Select multiple PDF files and merge them in seconds. Merge & combine PDF files online, easily and free. No registration required."
         keywords="merge pdf, combine pdf, join pdf, pdf merger, combine pdf online, free pdf merger"
         schema={jsonLd}
       />
-      
+
       {/* Description for SEO (visually can be subtle or hidden if modal is tight, but let's keep it clean) */}
       <p className="text-gray-500 mb-6 text-center">
         Assemble multiple PDFs into one unified document.
@@ -98,58 +98,58 @@ const MergePDF = () => {
 
       {files.length === 0 ? (
         <div className="w-full">
-            <FileUploader onFilesSelected={handleFiles} multiple={true} accept=".pdf" />
+          <FileUploader onFilesSelected={handleFiles} multiple={true} accept=".pdf" />
         </div>
       ) : (
         <div className="w-full">
-             <div className="space-y-4 mb-8 max-h-[400px] overflow-y-auto custom-scrollbar p-1">
-                {files.map((f, index) => (
-                    <div key={index} className="flex items-center justify-between p-4 bg-gray-50 border rounded-xl group relative">
-                         <div className="flex items-center overflow-hidden">
-                            <File className="w-8 h-8 text-marvel-red mr-3 flex-shrink-0" />
-                            <span className="font-medium text-gray-700 truncate">{f.name}</span>
-                         </div>
-                         <button
-                            onClick={() => removeFile(index)}
-                            className="text-gray-400 hover:text-marvel-red p-1 transition-colors"
-                         >
-                             ✕
-                         </button>
-                    </div>
-                ))}
-             </div>
-             
-             {error && (
-                <div className="mb-4 text-marvel-red font-medium text-center">
-                    {error}
+          <div className="space-y-4 mb-8 max-h-[400px] overflow-y-auto custom-scrollbar p-1">
+            {files.map((f, index) => (
+              <div key={index} className="flex items-center justify-between p-4 bg-gray-50 border rounded-xl group relative">
+                <div className="flex items-center overflow-hidden">
+                  <File className="w-8 h-8 text-marvel-red mr-3 flex-shrink-0" />
+                  <span className="font-medium text-gray-700 truncate">{f.name}</span>
                 </div>
-             )}
-
-            <div className="text-center sticky bottom-0 bg-white pt-4">
-                <button 
-                    onClick={mergeFiles}
-                    disabled={loading || files.length < 2}
-                    className={`bg-marvel-red text-white text-xl font-bold py-4 px-10 rounded-xl hover:bg-red-700 transition shadow-lg flex items-center justify-center mx-auto gap-2 w-full
-                        ${loading || files.length < 2 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                <button
+                  onClick={() => removeFile(index)}
+                  className="text-gray-400 hover:text-marvel-red p-1 transition-colors"
                 >
-                    {loading ? (
-                        <>
-                            <Loader2 className="animate-spin" /> Assembling...
-                        </>
-                    ) : (
-                        <>
-                            Merge PDFs <Download className="w-5 h-5 ml-2" />
-                        </>
-                    )}
+                  ✕
                 </button>
+              </div>
+            ))}
+          </div>
+
+          {error && (
+            <div className="mb-4 text-marvel-red font-medium text-center">
+              {error}
             </div>
-            {/* Add more to add another file? */}
-             <div className="mt-4 text-center">
-                <label className="text-blue-600 hover:text-blue-800 cursor-pointer font-medium text-sm">
-                   + Add more files
-                   <input type="file" multiple accept=".pdf" className="hidden" onChange={(e) => handleFiles(e.target.files)} />
-                </label>
-            </div>
+          )}
+
+          <div className="text-center sticky bottom-0 bg-white pt-4">
+            <button
+              onClick={mergeFiles}
+              disabled={loading || files.length < 2}
+              className={`bg-marvel-red text-white text-xl font-bold py-4 px-10 rounded-xl hover:bg-red-700 transition shadow-lg flex items-center justify-center mx-auto gap-2 w-full
+                        ${loading || files.length < 2 ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="animate-spin" /> Assembling...
+                </>
+              ) : (
+                <>
+                  Merge PDFs <Download className="w-5 h-5 ml-2" />
+                </>
+              )}
+            </button>
+          </div>
+          {/* Add more to add another file? */}
+          <div className="mt-4 text-center">
+            <label className="text-blue-600 hover:text-blue-800 cursor-pointer font-medium text-sm">
+              + Add more files
+              <input type="file" multiple accept=".pdf" className="hidden" onChange={(e) => handleFiles(e.target.files)} />
+            </label>
+          </div>
         </div>
       )}
     </ToolModal>

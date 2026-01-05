@@ -18,7 +18,7 @@ const Signup = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (password !== confirmPassword) return setError("Passwords don't match");
-    
+
     setError('');
     try {
       await signup(email, password, name);
@@ -30,36 +30,36 @@ const Signup = () => {
 
   return (
     <div className="flex items-center justify-center p-4 w-full max-w-md relative z-10">
-      <SEO 
-        title="Sign Up for MarvelPDF - Free Account" 
+      <SEO
+        title="Sign Up for MarvelPDF - Free Account"
         description="Create a free MarvelPDF account to unlock higher limits and manage your document history. Fast, secure, and free."
         keywords="sign up, create account, free pdf tools"
       />
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
         className="bg-marvel-black/95 backdrop-blur-xl p-8 rounded-2xl shadow-2xl w-full border border-gray-800"
       >
         <Link to="/" className="text-gray-400 hover:text-marvel-red mb-8 inline-flex items-center gap-2 transition-colors text-sm font-bold uppercase tracking-wide group">
-             <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" /> Back to Home
+          <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" /> Back to Home
         </Link>
 
         <div className="text-center mb-8">
-            <h2 className="text-4xl font-heading text-white mb-2 tracking-tight">
-              Join MarvelPDF
-            </h2>
-            <p className="text-gray-400">Create your account to transform PDFs</p>
+          <h2 className="text-4xl font-heading text-white mb-2 tracking-tight">
+            Join MarvelPDF
+          </h2>
+          <p className="text-gray-400">Create your account to transform PDFs</p>
         </div>
 
         {error && (
-            <motion.div 
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                className="bg-red-500/10 border-l-4 border-marvel-red text-marvel-red p-4 rounded-r-lg mb-6 text-sm font-medium"
-            >
-                {error}
-            </motion.div>
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            className="bg-red-500/10 border-l-4 border-marvel-red text-marvel-red p-4 rounded-r-lg mb-6 text-sm font-medium"
+          >
+            {error}
+          </motion.div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -88,7 +88,7 @@ const Signup = () => {
               aria-label="Email Address"
             />
           </div>
-          
+
           <div className="relative group">
             <Lock className="absolute left-3 top-3.5 text-gray-500 group-focus-within:text-marvel-red transition-colors" size={20} />
             <input
@@ -101,7 +101,7 @@ const Signup = () => {
               aria-label="Password"
             />
           </div>
-          
+
           <div className="relative group">
             <Lock className="absolute left-3 top-3.5 text-gray-500 group-focus-within:text-marvel-red transition-colors" size={20} />
             <input
@@ -114,7 +114,7 @@ const Signup = () => {
               aria-label="Confirm Password"
             />
           </div>
-          
+
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
@@ -126,10 +126,10 @@ const Signup = () => {
         </form>
 
         <p className="mt-8 text-center text-gray-400">
-            Already have an account?{' '}
-            <Link to="/login" className="text-white hover:text-marvel-red font-bold transition-colors">
-                Log in
-            </Link>
+          Already have an account?{' '}
+          <Link to="/login" className="text-white hover:text-marvel-red font-bold transition-colors">
+            Log in
+          </Link>
         </p>
       </motion.div>
     </div>

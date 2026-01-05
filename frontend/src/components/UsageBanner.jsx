@@ -14,8 +14,8 @@ const UsageBanner = () => {
         try {
             const token = localStorage.getItem('token');
             const headers = token ? { Authorization: `Bearer ${token}` } : {};
-            const res = await axios.get('/api/usage-status', { headers });
-            setStatus(res.data);
+            // const res = await axios.get('/api/usage-status', { headers });
+            // setStatus(res.data);
         } catch (e) {
             console.error("Failed to fetch usage status", e);
         }

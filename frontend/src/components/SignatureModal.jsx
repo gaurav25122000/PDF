@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { X, PenTool, Type, Upload, Trash2, Check } from 'lucide-react';
 
 const SignatureModal = ({ isOpen, onClose, onSave }) => {
-    if (!isOpen) return null;
+    // Moved early return to after hooks to satisfy React Rules of Hooks
 
     const [activeTab, setActiveTab] = useState('draw'); // draw, type, upload
     const [typedName, setTypedName] = useState('');
@@ -96,6 +96,8 @@ const SignatureModal = ({ isOpen, onClose, onSave }) => {
         }
     };
 
+    if (!isOpen) return null;
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col">
@@ -160,20 +162,20 @@ const SignatureModal = ({ isOpen, onClose, onSave }) => {
 
                     {activeTab === 'upload' && (
                         <div className="w-full text-center">
-                             {uploadedImage ? (
-                                 <div className="relative inline-block">
-                                     <img src={uploadedImage} className="max-h-40 object-contain border rounded bg-white" />
-                                     <button onClick={() => setUploadedImage(null)} className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full shadow">
-                                         <X className="w-3 h-3" />
-                                     </button>
-                                 </div>
-                             ) : (
-                                 <label className="cursor-pointer flex flex-col items-center gap-2 p-8 border-2 border-dashed border-gray-300 rounded-lg hover:bg-white hover:border-purple-400 transition">
-                                     <Upload className="w-8 h-8 text-gray-400" />
-                                     <span className="text-sm text-gray-500">Click to upload image</span>
-                                     <input type="file" accept="image/*" className="hidden" onChange={handleUpload} />
-                                 </label>
-                             )}
+                            {uploadedImage ? (
+                                <div className="relative inline-block">
+                                    <img src={uploadedImage} className="max-h-40 object-contain border rounded bg-white" />
+                                    <button onClick={() => setUploadedImage(null)} className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full shadow">
+                                        <X className="w-3 h-3" />
+                                    </button>
+                                </div>
+                            ) : (
+                                <label className="cursor-pointer flex flex-col items-center gap-2 p-8 border-2 border-dashed border-gray-300 rounded-lg hover:bg-white hover:border-purple-400 transition">
+                                    <Upload className="w-8 h-8 text-gray-400" />
+                                    <span className="text-sm text-gray-500">Click to upload image</span>
+                                    <input type="file" accept="image/*" className="hidden" onChange={handleUpload} />
+                                </label>
+                            )}
                         </div>
                     )}
                 </div>
@@ -192,5 +194,6 @@ const SignatureModal = ({ isOpen, onClose, onSave }) => {
         </div>
     );
 };
+
 
 export default SignatureModal;

@@ -18,12 +18,12 @@ const ValueCard = ({ icon: Icon, title, description, colorClass, bgClass }) => (
 const About = () => {
   useEffect(() => {
     window.scrollTo(0, 0);
-  }, []); 
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800 py-12 px-4 sm:px-6 lg:px-8">
-      <SEO 
-        title="About Us - MarvelPDF Mission" 
+      <SEO
+        title="About Us - MarvelPDF Mission"
         description="Learn about the MarvelPDF mission. We are dedicated to making PDF tools accessible, fast, and beautiful for everyone."
         keywords="about marvelpdf, mission, team, values"
       />
@@ -31,12 +31,12 @@ const About = () => {
       {/* Background Elements */}
       <div className="fixed top-0 right-0 w-[500px] h-[500px] bg-marvel-red/5 blur-[100px] rounded-full pointer-events-none -translate-y-1/2 translate-x-1/2 -z-10" />
       <div className="fixed bottom-0 left-0 w-[500px] h-[500px] bg-blue-50 blur-[100px] rounded-full pointer-events-none translate-y-1/2 -translate-x-1/2 -z-10" />
-      
+
       <div className="max-w-6xl mx-auto relative z-10">
         <div className="mb-8 md:mb-12">
           <Link to="/" className="inline-flex items-center gap-2 text-gray-500 hover:text-marvel-black transition-colors font-bold group">
-             <div className="p-2 bg-white rounded-lg shadow-sm border border-gray-100 group-hover:shadow-md transition-all">
-                <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform" />
+            <div className="p-2 bg-white rounded-lg shadow-sm border border-gray-100 group-hover:shadow-md transition-all">
+              <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform" />
             </div>
             <span className="text-sm">Back to Tools</span>
           </Link>
@@ -45,11 +45,11 @@ const About = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 md:gap-16 items-center mb-16 md:mb-24">
           <div className="order-2 lg:order-1">
             <h1 className="text-4xl md:text-6xl font-heading text-marvel-black mb-6 leading-tight">
-              Making PDFs <br/>
+              Making PDFs <br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-marvel-red to-orange-500">Legendary.</span>
             </h1>
             <p className="text-lg md:text-xl text-gray-600 mb-8 leading-relaxed max-w-lg">
-              MarvelPDF was born from a simple frustration: PDF tools are often ugly, slow, or expensive. 
+              MarvelPDF was born from a simple frustration: PDF tools are often ugly, slow, or expensive.
               We wanted to build something different—a suite of tools that feels <strong>premium</strong> but remains <strong>free</strong>.
             </p>
             <div className="flex gap-4">
@@ -58,24 +58,24 @@ const About = () => {
               </a>
             </div>
           </div>
-          
+
           <div className="relative order-1 lg:order-2">
-             <div className="absolute inset-0 bg-gradient-to-tr from-marvel-red/20 to-blue-500/20 rounded-3xl blur-3xl -z-10 transform rotate-3" />
-             <div className="bg-white/80 backdrop-blur-xl p-8 md:p-10 rounded-3xl border border-white/50 shadow-sm">
-                <div className="mb-6 text-marvel-red">
-                    <Heart size={40} className="fill-current" />
+            <div className="absolute inset-0 bg-gradient-to-tr from-marvel-red/20 to-blue-500/20 rounded-3xl blur-3xl -z-10 transform rotate-3" />
+            <div className="bg-white/80 backdrop-blur-xl p-8 md:p-10 rounded-3xl border border-white/50 shadow-sm">
+              <div className="mb-6 text-marvel-red">
+                <Heart size={40} className="fill-current" />
+              </div>
+              <p className="text-xl md:text-2xl font-heading text-marvel-black mb-6 italic">
+                "We believe that productivity tools should be a joy to use. That's why we focus heavily on design, user experience, and speed."
+              </p>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-marvel-black text-white flex items-center justify-center rounded-full font-bold">M</div>
+                <div>
+                  <div className="font-bold text-marvel-black">MarvelPDF Team</div>
+                  <div className="text-xs text-gray-500">Creators</div>
                 </div>
-                <p className="text-xl md:text-2xl font-heading text-marvel-black mb-6 italic">
-                  "We believe that productivity tools should be a joy to use. That's why we focus heavily on design, user experience, and speed."
-                </p>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-marvel-black text-white flex items-center justify-center rounded-full font-bold">M</div>
-                  <div>
-                    <div className="font-bold text-marvel-black">MarvelPDF Team</div>
-                    <div className="text-xs text-gray-500">Creators</div>
-                  </div>
-                </div>
-             </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -86,23 +86,23 @@ const About = () => {
               We guide every decision we make by these three principles.
             </p>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <ValueCard 
+            <ValueCard
               icon={Shield}
               title="Privacy First"
               description="Your data belongs to you. We verify no files are stored for more than 2 hours. Security is not an afterthought."
               bgClass="bg-blue-50"
               colorClass="text-blue-600"
             />
-            <ValueCard 
+            <ValueCard
               icon={Zap}
               title="Radical Simplicity"
               description="No complex menus. No 20-step tutorials. Just drag, drop, and done. We design for speed."
               bgClass="bg-yellow-50"
               colorClass="text-yellow-600"
             />
-            <ValueCard 
+            <ValueCard
               icon={Heart}
               title="Quality Obsession"
               description="We use the best rendering engines to ensure your PDFs look perfect, pixel for pixel, every single time."

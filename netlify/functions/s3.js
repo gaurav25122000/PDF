@@ -48,7 +48,7 @@ export const getUploadUrl = async (key, contentType) => {
 // Generate Presigned Download URL
 export const getDownloadUrl = async (key) => {
     if (isMock) {
-         return `http://localhost:3000/mock-s3/${encodeURIComponent(key)}`;
+        return `http://localhost:3000/mock-s3/${encodeURIComponent(key)}`;
     }
     const command = new GetObjectCommand({
         Bucket: BUCKET_NAME,
@@ -71,7 +71,7 @@ export const downloadToBuffer = async (key) => {
         Key: key,
     });
     const response = await s3Client.send(command);
-    
+
     const stream = response.Body;
     const chunks = [];
     for await (const chunk of stream) {

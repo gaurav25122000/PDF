@@ -14,8 +14,8 @@ const ToolCard = ({ title, description, icon: Icon, to, color = "red" }) => {
   const selectedColorClass = colorClasses[color] || colorClasses.red;
 
   return (
-    <Link 
-      to={to} 
+    <Link
+      to={to}
       className="block w-full h-full" // Simplified Link className, styling moved to motion.div
     >
       <motion.div
@@ -25,7 +25,7 @@ const ToolCard = ({ title, description, icon: Icon, to, color = "red" }) => {
       >
         {/* New absolute div for background effect */}
         <div className={`absolute top-0 right-0 w-24 h-24 bg-${color} opacity-5 rounded-bl-full -mr-10 -mt-10 transition-transform group-hover:scale-150 duration-500`}></div>
-        
+
         {/* Modified icon container div */}
         <div className={`p-3 rounded-lg ${selectedColorClass.replace('group-hover:bg-red-500 group-hover:text-white', '')} mb-4 group-hover:ring-4 ring-opacity-20 transition-all duration-300`}>
           <Icon className="w-8 h-8" /> {/* Icon size changed */}

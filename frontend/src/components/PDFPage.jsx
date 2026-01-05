@@ -27,9 +27,9 @@ const PDFPage = ({ pdfDoc, pageNumber, onCanvasReady, scale }) => {
                     height: viewport.height,
                     backgroundColor: '#ffffff'
                 });
-                
+
                 fabricCanvasRef.current = canvas;
-                
+
                 // Notify parent
                 if (onCanvasReady) onCanvasReady(pageNumber, canvas);
 

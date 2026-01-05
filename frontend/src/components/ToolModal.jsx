@@ -26,7 +26,7 @@ const ToolModal = ({ children, title, className = "" }) => {
         onClick={() => navigate('/')}
         className="absolute inset-0 bg-marvel-black/90 backdrop-blur-sm"
       />
-      
+
       <motion.div
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -37,23 +37,23 @@ const ToolModal = ({ children, title, className = "" }) => {
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-white sticky top-0 z-10">
-            <h2 className="text-2xl font-heading font-bold text-gray-900 uppercase tracking-tight">
-                {title}
-            </h2>
-            <button 
-                onClick={() => navigate('/')}
-                className="p-2 rounded-full hover:bg-gray-100 transition-colors group"
-                aria-label="Close"
-            >
-                <X className="w-6 h-6 text-gray-400 group-hover:text-marvel-red" />
-            </button>
+          <h2 className="text-2xl font-heading font-bold text-gray-900 uppercase tracking-tight">
+            {title}
+          </h2>
+          <button
+            onClick={() => navigate('/')}
+            className="p-2 rounded-full hover:bg-gray-100 transition-colors group"
+            aria-label="Close"
+          >
+            <X className="w-6 h-6 text-gray-400 group-hover:text-marvel-red" />
+          </button>
         </div>
 
         {/* Content */}
         <div className="overflow-y-auto p-6 custom-scrollbar">
-            {children}
+          {children}
         </div>
-        
+
         {/* Border accent */}
         <div className="h-1 bg-marvel-red w-full sticky bottom-0" />
       </motion.div>

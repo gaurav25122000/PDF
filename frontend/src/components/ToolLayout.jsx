@@ -17,7 +17,7 @@ const ToolLayout = ({ title, description, children, color = "red" }) => {
   const selectedColor = bgColors[color] || bgColors.red;
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0 }}
@@ -26,14 +26,14 @@ const ToolLayout = ({ title, description, children, color = "red" }) => {
     >
       <div className={`${selectedColor} py-12 md:py-20 px-4 text-center text-white transition-colors`}>
         <div className="max-w-4xl mx-auto">
-            <h1 className="text-3xl md:text-4xl font-bold mb-4">{title}</h1>
-            <p className="text-lg md:text-xl opacity-90">{description}</p>
+          <h1 className="text-3xl md:text-4xl font-bold mb-4">{title}</h1>
+          <p className="text-lg md:text-xl opacity-90">{description}</p>
         </div>
       </div>
-      
+
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 -mt-16 pb-20 relative z-10">
         <div className="bg-white rounded-xl shadow-xl p-6 md:p-12 min-h-[500px] border border-gray-100 flex flex-col items-center justify-center">
-            {children}
+          {children}
         </div>
       </div>
     </motion.div>

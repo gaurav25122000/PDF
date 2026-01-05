@@ -13,8 +13,8 @@ const CompressPDF = () => {
 
   const handleFiles = (fileList) => {
     if (fileList.length > 0) {
-        setFile(fileList[0]);
-        setError(null);
+      setFile(fileList[0]);
+      setError(null);
     }
   };
 
@@ -25,31 +25,31 @@ const CompressPDF = () => {
     setError(null);
 
     try {
-        // 1. Upload to S3
-        const uploadConfigRes = await axios.post('/api/s3/upload-url', {
-             filename: file.name,
-             contentType: file.type
-        });
-        const { uploadUrl, key } = uploadConfigRes.data;
-        
-        await fetch(uploadUrl, {
-             method: 'PUT',
-             body: file,
-             headers: { 'Content-Type': file.type }
-        });
+      // 1. Upload to S3
+      const uploadConfigRes = await axios.post('/api/s3/upload-url', {
+        filename: file.name,
+        contentType: file.type
+      });
+      const { uploadUrl, key } = uploadConfigRes.data;
 
-        // 2. Trigger Compress
-        const response = await axios.post('/api/process/compress', { key });
+      await fetch(uploadUrl, {
+        method: 'PUT',
+        body: file,
+        headers: { 'Content-Type': file.type }
+      });
 
-        // 3. Download Result
-        const { downloadUrl } = response.data;
-        window.open(downloadUrl, '_blank');
-        window.dispatchEvent(new Event('usage-updated'));
+      // 2. Trigger Compress
+      const response = await axios.post('/api/process/compress', { key });
+
+      // 3. Download Result
+      const { downloadUrl } = response.data;
+      window.open(downloadUrl, '_blank');
+      window.dispatchEvent(new Event('usage-updated'));
     } catch (err) {
-        console.error("Compress error:", err);
-        setError("Failed to compress PDF.");
+      console.error("Compress error:", err);
+      setError("Failed to compress PDF.");
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
   };
 
@@ -70,58 +70,58 @@ const CompressPDF = () => {
 
   return (
     <ToolModal title="Compress PDF file">
-      <SEO 
-        title="Compress PDF - Reduce PDF File Size Online" 
+      <SEO
+        title="Compress PDF - Reduce PDF File Size Online"
         description="Compress PDF files online for free. Reduce PDF file size while maintaining the best possible quality. Optimize your documents for web and email."
         keywords="compress pdf, reduce pdf size, optimize pdf, shrink pdf, pdf compressor online, free pdf compressor"
         schema={jsonLd}
       />
-      
+
       <p className="text-gray-500 mb-6 text-center">
         Shrink your PDF size without losing quality.
       </p>
 
       {!file ? (
         <div className="w-full">
-            <FileUploader onFilesSelected={handleFiles} multiple={false} accept=".pdf" />
+          <FileUploader onFilesSelected={handleFiles} multiple={false} accept=".pdf" />
         </div>
       ) : (
         <div className="w-full">
-             <div className="flex flex-col items-center justify-center p-6 bg-gray-50 border rounded-xl mb-6 relative group">
-                <File className="w-16 h-16 text-green-500 mb-2" />
-                <span className="font-medium text-gray-700">{file.name}</span>
-                <button 
-                    onClick={() => setFile(null)}
-                    className="absolute top-2 right-2 text-gray-400 hover:text-green-500 p-1"
-                >
-                    ✕
-                </button>
-            </div>
-             
-            {error && (
-                <div className="mb-4 text-marvel-red font-medium text-center">
-                    {error}
-                </div>
-            )}
+          <div className="flex flex-col items-center justify-center p-6 bg-gray-50 border rounded-xl mb-6 relative group">
+            <File className="w-16 h-16 text-green-500 mb-2" />
+            <span className="font-medium text-gray-700">{file.name}</span>
+            <button
+              onClick={() => setFile(null)}
+              className="absolute top-2 right-2 text-gray-400 hover:text-green-500 p-1"
+            >
+              ✕
+            </button>
+          </div>
 
-            <div className="text-center sticky bottom-0 bg-white pt-2">
-                <button 
-                    onClick={processFile}
-                    disabled={loading}
-                    className={`bg-green-600 text-white text-xl font-bold py-4 px-10 rounded-xl hover:bg-green-700 transition shadow-lg flex items-center justify-center mx-auto gap-2 w-full
-                        ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                    {loading ? (
-                        <>
-                            <Loader2 className="animate-spin" /> Compressing...
-                        </>
-                    ) : (
-                        <>
-                            Compress PDF <Minimize2 className="w-5 h-5 ml-2" />
-                        </>
-                    )}
-                </button>
+          {error && (
+            <div className="mb-4 text-marvel-red font-medium text-center">
+              {error}
             </div>
+          )}
+
+          <div className="text-center sticky bottom-0 bg-white pt-2">
+            <button
+              onClick={processFile}
+              disabled={loading}
+              className={`bg-green-600 text-white text-xl font-bold py-4 px-10 rounded-xl hover:bg-green-700 transition shadow-lg flex items-center justify-center mx-auto gap-2 w-full
+                        ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="animate-spin" /> Compressing...
+                </>
+              ) : (
+                <>
+                  Compress PDF <Minimize2 className="w-5 h-5 ml-2" />
+                </>
+              )}
+            </button>
+          </div>
         </div>
       )}
     </ToolModal>
