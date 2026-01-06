@@ -1,3 +1,5 @@
+// Enable verbose logging for debugging
+console.log("DB Module Loaded");
 import { Pool } from 'pg';
 
 const getDbUrl = () => {
