@@ -40,7 +40,7 @@ const PageNumbersPDF = () => {
       });
 
       // 2. Trigger Page Numbers
-      const response = await axios.post('/api/process/page-numbers', { key, position });
+      const response = await axios.post('/api/dispatch_process?action=page-numbers', { key, position });
 
       // 3. Download Result
       const { downloadUrl } = response.data;

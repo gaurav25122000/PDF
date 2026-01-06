@@ -40,7 +40,7 @@ const WatermarkPDF = () => {
       });
 
       // 2. Trigger Watermark
-      const response = await axios.post('/api/process/watermark', { key, text });
+      const response = await axios.post('/api/dispatch_process?action=watermark', { key, text });
 
       // 3. Download Result
       const { downloadUrl } = response.data;

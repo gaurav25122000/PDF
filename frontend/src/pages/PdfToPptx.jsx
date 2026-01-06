@@ -39,7 +39,7 @@ const PdfToPptx = () => {
       });
 
       // 2. Trigger Conversion
-      const response = await axios.post('/api/process/pdf-to-pptx', { key });
+      const response = await axios.post('/api/dispatch_process?action=pdf-to-pptx', { key });
 
       // 3. Download Result
       const { downloadUrl } = response.data;

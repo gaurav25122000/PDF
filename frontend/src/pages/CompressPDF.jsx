@@ -39,7 +39,7 @@ const CompressPDF = () => {
       });
 
       // 2. Trigger Compress
-      const response = await axios.post('/api/process/compress', { key });
+      const response = await axios.post('/api/dispatch_process?action=compress', { key });
 
       // 3. Download Result
       const { downloadUrl } = response.data;

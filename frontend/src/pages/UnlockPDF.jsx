@@ -40,7 +40,7 @@ const UnlockPDF = () => {
       });
 
       // 2. Trigger Unlock
-      const response = await axios.post('/api/process/unlock', { key, password });
+      const response = await axios.post('/api/dispatch_process?action=unlock', { key, password });
 
       // 3. Download Result
       const { downloadUrl } = response.data;

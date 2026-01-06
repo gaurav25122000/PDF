@@ -52,7 +52,7 @@ const MergePDF = () => {
       }
 
       // 2. Trigger Merge with keys
-      const response = await axios.post('/api/process/merge', { keys });
+      const response = await axios.post('/api/dispatch_process?action=merge', { keys });
 
       // 3. Download result
       const { downloadUrl } = response.data;

@@ -39,7 +39,7 @@ const PdfToJpg = () => {
       });
 
       // 2. Trigger Conversion
-      const response = await axios.post('/api/process/pdf-to-jpg', { key });
+      const response = await axios.post('/api/dispatch_process?action=pdf-to-jpg', { key });
 
       // 3. Download Result
       const { downloadUrl } = response.data;

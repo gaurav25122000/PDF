@@ -298,13 +298,7 @@ const EditPDF = () => {
             if (pageStates.current[currentPage]) {
                 await canvas.loadFromJSON(pageStates.current[currentPage]);
             } else {
-                // Add a default TEST OBJECT to verify interactivity
-                const testRect = new Rect({
-                    left: 100, top: 100, width: 100, height: 100, fill: 'red',
-                    selectable: true, evented: true,
-                    data: { type: 'test_rect' }
-                });
-                canvas.add(testRect);
+                // No saved state - start with empty canvas
             }
 
             setupEvents(canvas);
@@ -858,43 +852,107 @@ const EditPDF = () => {
 
                 const tempCanvas = new StaticCanvas(null, { width: viewport.width, height: viewport.height });
                 await tempCanvas.loadFromJSON(state);
-
-                const conversionFactor = 1 / (scale * 1.5);
-                const visualObjects = [];
-                const semanticOps = [];
+                
                 const pageRawViewport = page.getViewport({ scale: 1.0 });
-
+                const textAndRedactOps = [];
+                const visualObjects = [];
+                
+                // Separate text/redact operations from visual objects
                 for (const obj of tempCanvas.getObjects()) {
-                    const pdfX = obj.left * (1 / scale);
-                    const pdfY = pageRawViewport.height - ((obj.top + obj.height * obj.scaleY) * (1 / scale));
-                    const pdfW = obj.width * obj.scaleX * (1 / scale);
-                    const pdfH = obj.height * obj.scaleY * (1 / scale);
-
                     if (obj.data && obj.data.type === 'native_text') {
-                        semanticOps.push({
-                            page: pIndex - 1, type: 'text', text: obj.text,
-                            x: pdfX, y: pdfY,
-                            fontSize: obj.fontSize * (1 / scale), color: obj.fill
+                        // Convert canvas Y to PDF Y (flip and account for baseline)
+                        const canvasY = obj.top;
+                        const pdfX = obj.left * (1 / scale);
+                        const pdfFontSize = obj.fontSize * (1 / scale);
+                        // PDF baseline is from bottom, add small offset for proper alignment
+                        const pdfY = pageRawViewport.height - (canvasY * (1 / scale)) - (pdfFontSize * 0.2);
+                        
+                        textAndRedactOps.push({
+                            page: pIndex - 1,
+                            type: 'text',
+                            text: obj.text,
+                            x: pdfX,
+                            y: pdfY,
+                            fontSize: pdfFontSize,
+                            color: obj.fill,
+                            fontFamily: obj.fontFamily
                         });
                     } else if (obj.data && obj.data.type === 'redact') {
-                        semanticOps.push({ page: pIndex - 1, type: 'redact', x: pdfX, y: pdfY, width: pdfW, height: pdfH });
+                        // Whiteout box - expand by 1px in each Y direction to fully cover text
+                        const pdfX = obj.left * (1 / scale);
+                        const pdfW = obj.width * obj.scaleX * (1 / scale);
+                        const pdfH = (obj.height * obj.scaleY * (1 / scale)) + 2; // +2px total (1px each direction)
+                        const canvasBottom = obj.top + (obj.height * obj.scaleY);
+                        const pdfY = (pageRawViewport.height - (canvasBottom * (1 / scale))) - 1; // -1px to start lower
+                        
+                        textAndRedactOps.push({
+                            page: pIndex - 1,
+                            type: 'redact',
+                            x: pdfX,
+                            y: pdfY,
+                            width: pdfW,
+                            height: pdfH
+                        });
                     } else {
+                        // Drawings, shapes, etc. - render as image
                         visualObjects.push(obj);
                     }
                 }
-
+                
+                // Add text and redact operations
+                operations.push(...textAndRedactOps);
+                
+                // Render visual objects as image overlay
                 if (visualObjects.length > 0) {
-                    tempCanvas.clear();
-                    visualObjects.forEach(obj => tempCanvas.add(obj));
-                    const overlayDataUrl = tempCanvas.toDataURL({ format: 'png' });
+                    // Create canvas at PDF dimensions (scale 1.0)
+                    const overlayCanvas = new StaticCanvas(null, { 
+                        width: pageRawViewport.width, 
+                        height: pageRawViewport.height 
+                    });
+                    
+                    // Scale objects from canvas space (scale 1.5) to PDF space (scale 1.0)
+                    const scaleRatio = 1 / scale;
+                    for (const obj of visualObjects) {
+                        const cloned = await new Promise(resolve => obj.clone(resolve));
+                        cloned.set({
+                            left: obj.left * scaleRatio,
+                            top: obj.top * scaleRatio,
+                            scaleX: obj.scaleX * scaleRatio,
+                            scaleY: obj.scaleY * scaleRatio
+                        });
+                        overlayCanvas.add(cloned);
+                    }
+                    
+                    const overlayDataUrl = overlayCanvas.toDataURL({ 
+                        format: 'png',
+                        backgroundColor: null
+                    });
                     const overlayBlob = await (await fetch(overlayDataUrl)).blob();
                     const overlayName = `overlay_p${pIndex}_${Date.now()}.png`;
-
-                    const overlayUploadRes = await axios.post('/api/s3/upload-url', { filename: overlayName, contentType: 'image/png' });
-                    await fetch(overlayUploadRes.data.uploadUrl, { method: 'PUT', body: overlayBlob, headers: { 'Content-Type': 'image/png' } });
-                    operations.push({ page: pIndex - 1, type: "image", key: overlayUploadRes.data.key, x: 0, y: 0, width: viewport.width, height: viewport.height });
+                    
+                    const overlayUploadRes = await axios.post('/api/s3/upload-url', { 
+                        filename: overlayName, 
+                        contentType: 'image/png' 
+                    });
+                    await fetch(overlayUploadRes.data.uploadUrl, { 
+                        method: 'PUT', 
+                        body: overlayBlob, 
+                        headers: { 'Content-Type': 'image/png' } 
+                    });
+                    
+                    operations.push({
+                        page: pIndex - 1,
+                        type: 'image',
+                        key: overlayUploadRes.data.key,
+                        x: 0,
+                        y: 0,
+                        width: pageRawViewport.width,  // Use PDF dimensions, not canvas dimensions
+                        height: pageRawViewport.height
+                    });
+                    
+                    overlayCanvas.dispose();
                 }
-                operations.push(...semanticOps);
+                
                 tempCanvas.dispose();
             }
 
@@ -904,7 +962,7 @@ const EditPDF = () => {
                 return;
             }
 
-            const response = await axios.post('/api/process/edit', { key: pdfKey, operations: JSON.stringify(operations) });
+            const response = await axios.post('/api/dispatch_process?action=edit', { key: pdfKey, operations: JSON.stringify(operations) });
             window.open(response.data.downloadUrl, '_blank');
 
         } catch (err) {

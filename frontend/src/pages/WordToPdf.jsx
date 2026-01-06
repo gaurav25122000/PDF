@@ -44,7 +44,7 @@ const WordToPdf = () => {
       });
 
       // 2. Trigger Conversion
-      const response = await axios.post('/api/process/word-to-pdf', { key });
+      const response = await axios.post('/api/dispatch_process?action=word-to-pdf', { key });
 
       // 3. Download Result
       const { downloadUrl } = response.data;

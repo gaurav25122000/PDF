@@ -1,8 +1,10 @@
 {
   "outputDirectory": "frontend/dist",
-  "routes": [
-    { "handle": "filesystem" },
-    { "src": "/(.*)", "dest": "/index.html" }
+  "rewrites": [
+    { "source": "/api/process/(.*)", "destination": "/api/dispatch_process?action=$1" },
+    { "source": "/api/auth/(.*)", "destination": "/api/dispatch_auth?action=$1" },
+    { "source": "/api/(.*)", "destination": "/api/$1" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
 

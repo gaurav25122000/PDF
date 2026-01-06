@@ -44,7 +44,7 @@ const ProtectPDF = () => {
       });
 
       // 2. Trigger Protect
-      const response = await axios.post('/api/process/protect', { key, password });
+      const response = await axios.post('/api/dispatch_process?action=protect', { key, password });
 
       // 3. Download Result
       const { downloadUrl } = response.data;

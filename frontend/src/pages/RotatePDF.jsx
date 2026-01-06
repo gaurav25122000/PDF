@@ -40,7 +40,7 @@ const RotatePDF = () => {
       });
 
       // 2. Trigger Rotate
-      const response = await axios.post('/api/process/rotate', { key, angle: rotation });
+      const response = await axios.post('/api/dispatch_process?action=rotate', { key, angle: rotation });
 
       // 3. Download Result
       const { downloadUrl } = response.data;

@@ -204,7 +204,7 @@ const SignPDF = () => {
             });
 
             // 2. Trigger Process
-            const response = await axios.post('/api/process/edit', { key, operations: opsJson });
+            const response = await axios.post('/api/dispatch_process?action=edit', { key, operations: opsJson });
 
             // 3. Download
             const { downloadUrl } = response.data;

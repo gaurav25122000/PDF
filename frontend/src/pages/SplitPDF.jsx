@@ -69,7 +69,7 @@ const SplitPDF = () => {
             });
 
             // 2. Trigger Split
-            const response = await axios.post('/api/process/split', { key, range: finalRange });
+            const response = await axios.post('/api/dispatch_process?action=split', { key, range: finalRange });
 
             // 3. Download Result
             const { downloadUrl } = response.data;

@@ -4,7 +4,7 @@ import { applyCors, handleOptions, checkRateLimit, logUsage, authenticate } from
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 import fs from 'fs';
-import { PDFDocument, rgb } from 'pdf-lib';
+import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import mammoth from 'mammoth';
 import * as docx from 'docx';
 // import * as XLSX from 'xlsx'; // Assuming standard import works or user environment has it.
@@ -208,22 +208,79 @@ async function edit(req, res) {
     const buffer = await downloadToBuffer(key);
     const pdfDoc = await PDFDocument.load(buffer);
     const pages = pdfDoc.getPages();
-    const font = await pdfDoc.embedFont("Helvetica");
+    
+    // Load standard fonts - these don't require fontkit
+    const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const timesFont = await pdfDoc.embedFont(StandardFonts.TimesRoman);
+    const courierFont = await pdfDoc.embedFont(StandardFonts.Courier);
 
     for (const op of ops) {
         if (op.page >= pages.length) continue;
         const page = pages[op.page];
+        
         if (op.type === 'text') {
-             page.drawText(op.text, { x: op.x||0, y: op.y||0, size: op.fontSize||12, font });
+            // Parse color (hex to RGB)
+            let r = 0, g = 0, b = 0;
+            if (op.color && op.color.startsWith('#')) {
+                const hex = op.color.substring(1);
+                r = parseInt(hex.substring(0, 2), 16) / 255;
+                g = parseInt(hex.substring(2, 4), 16) / 255;
+                b = parseInt(hex.substring(4, 6), 16) / 255;
+            }
+            
+            // Select font (default to Helvetica)
+            let font = helveticaFont;
+            // Could add font family mapping here if needed
+            
+            page.drawText(op.text || '', { 
+                x: op.x || 0, 
+                y: op.y || 0, 
+                size: op.fontSize || 12, 
+                font,
+                color: rgb(r, g, b)
+            });
+        } else if (op.type === 'redact') {
+            // Draw white rectangle (whiteout box)
+            page.drawRectangle({
+                x: op.x || 0,
+                y: op.y || 0,
+                width: op.width || 0,
+                height: op.height || 0,
+                color: rgb(1, 1, 1), // White
+                borderColor: rgb(1, 1, 1),
+                borderWidth: 0
+            });
+        } else if (op.type === 'image') {
+            // Download overlay image from S3 and embed it
+            try {
+                const imageBuffer = await downloadToBuffer(op.key);
+                const pngImage = await pdfDoc.embedPng(imageBuffer);
+                
+                // PDF coordinates start from bottom-left, but our canvas image is rendered from top-left
+                // So we need to place it at: y = page_height - image_height
+                const pageHeight = page.getHeight();
+                const imageY = pageHeight - (op.height || pngImage.height);
+                
+                page.drawImage(pngImage, {
+                    x: op.x || 0,
+                    y: imageY,
+                    width: op.width || pngImage.width,
+                    height: op.height || pngImage.height
+                });
+            } catch (imgErr) {
+                console.error('Failed to embed image:', imgErr);
+                // Continue processing other operations
+            }
         }
-        // ... simplified for consolidated view ...
     }
+    
     const pdfBytes = await pdfDoc.save();
     const k = `results/${Date.now()}_${uuidv4()}_edit.pdf`;
     await uploadBuffer(k, Buffer.from(pdfBytes), 'application/pdf');
     await logUsage(req, 'Edit PDF');
     res.json({ downloadUrl: await getDownloadUrl(k) });
 }
+
 
 // Helpers
 async function prepareFiles(key, prefix) {

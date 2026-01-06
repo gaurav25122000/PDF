@@ -39,7 +39,7 @@ const ExcelToPdf = () => {
       });
 
       // 2. Trigger Conversion
-      const response = await axios.post('/api/process/excel-to-pdf', { key });
+      const response = await axios.post('/api/dispatch_process?action=excel-to-pdf', { key });
 
       // 3. Download Result
       const { downloadUrl } = response.data;
