@@ -1,7 +1,7 @@
-import { query } from '../../_lib/db.js';
+import { query } from './_lib/db.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { applyCors, handleOptions, authenticate } from '../../_lib/middleware.js';
+import { applyCors, handleOptions, authenticate } from './_lib/middleware.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_jwt_key_change_me';
 
@@ -14,9 +14,19 @@ export default async function handler(req, res) {
     // URL will be something like /api/auth/login? or /api/auth/signup
     // Vercel might pass req.query.route as array if file is [...route].js
     
-    const { route } = req.query; 
-    // route will be ['login'] or ['signup']
-    const action = route ? route[0] : '';
+    const { action } = req.query; 
+    let parts = action ? [action] : [];
+
+    if (parts.length === 0) {
+        const path = req.url.split('?')[0]; 
+        const segments = path.split('/').filter(Boolean);
+        const authIndex = segments.indexOf('auth');
+        if (authIndex !== -1 && segments.length > authIndex + 1) {
+            parts = segments.slice(authIndex + 1);
+        }
+    }
+
+    const action = parts.length > 0 ? parts[0] : '';
 
     try {
         if (action === 'signup') {

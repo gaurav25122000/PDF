@@ -1,6 +1,6 @@
-import { runProcessor, fileExists } from '../../_lib/runProcessor.js';
-import { getDownloadUrl, uploadBuffer, downloadToBuffer } from '../../_lib/s3.js';
-import { applyCors, handleOptions, checkRateLimit, logUsage, authenticate } from '../../_lib/middleware.js';
+import { runProcessor, fileExists } from './_lib/runProcessor.js';
+import { getDownloadUrl, uploadBuffer, downloadToBuffer } from './_lib/s3.js';
+import { applyCors, handleOptions, checkRateLimit, logUsage, authenticate } from './_lib/middleware.js';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 import fs from 'fs';
@@ -12,11 +12,29 @@ import pptxgen from 'pptxgenjs';
 
 export default async function handler(req, res) {
     console.log(`[Process] ${req.method} ${req.url}`);
+    console.log(`[Process] Query:`, JSON.stringify(req.query));
     
     if (handleOptions(req, res)) return;
     
-    const { route } = req.query;
-    const action = route ? route[0] : '';
+    const { action: queryAction } = req.query;
+    let parts = queryAction ? [queryAction] : [];
+    
+    // Fallback: Parse req.url if req.query.route is missing (common in some Vercel/Express setups)
+    // URL: /api/process/edit?foo=bar -> path: /api/process/edit -> action: edit
+    if (parts.length === 0) {
+        const path = req.url.split('?')[0]; // Remove query params
+        const segments = path.split('/').filter(Boolean); // Split and remove empty
+        // segments: ['api', 'process', 'edit']
+        // We expect the file to be at api/process, so we look for what comes after
+        const processIndex = segments.indexOf('process');
+        if (processIndex !== -1 && segments.length > processIndex + 1) {
+            parts = segments.slice(processIndex + 1);
+        }
+    }
+
+    const action = parts.length > 0 ? parts[0] : '';
+    
+    console.log(`[Process] Action derived: '${action}'`);
     
     if (req.method !== 'POST') return res.status(405).json({ error: "Method not allowed. Use POST." });
 

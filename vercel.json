@@ -1,7 +1,8 @@
 {
   "outputDirectory": "frontend/dist",
-  "rewrites": [
-    { "source": "/processor", "destination": "/api/processor.go" },
-    { "source": "/(.*)", "destination": "/index.html" }
+  "routes": [
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/index.html" }
   ]
 }
+
