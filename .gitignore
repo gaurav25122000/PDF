@@ -3,3 +3,5 @@ netlify/functions/package-lock.json
 *package-lock.json*
 *node_modules*
 .agent
+.vercel
+.env*.local
