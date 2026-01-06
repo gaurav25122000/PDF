@@ -1,9 +1,4 @@
 {
-  "rewrite": [
-    { "source": "/api/(.*)", "destination": "/api/index.js" },
-    { "source": "/processor", "destination": "/api/processor.go" },
-    { "source": "/(.*)", "destination": "/index.html" }
-  ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index.js" },
     { "source": "/processor", "destination": "/api/processor.go" },
